@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "deeplearning"
+version = "0.1.0"
+description = ""
+authors = ["Kasper Møller Hansen <kasperhansen1998@hotmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+numpy = "^2.1.0"
+matplotlib = "^3.9.2"
+matplotlib-inline = "^0.1.7"
+scikit-learn = "^1.5.1"
+mlxtend = "^0.23.1"
+ipykernel = "^6.29.5"
+ipython = "^8.27.0"
+scipy = "^1.14.1"
+tk = "^0.1.0"
+torch = {version = "^2.4.1+cu118", source = "pytorch-gpu"}
+torchvision = {version = "^0.19.1+cu118", source = "pytorch-gpu"}
+torchaudio = {version = "^2.4.1+cu118", source = "pytorch-gpu"}
+plotly = "^5.24.0"
+nbformat = "^5.10.4"
+torchsummary = "^1.5.1"
+nbconvert = "^7.16.4"
+pypdf2 = "^3.0.1"
+
+[[tool.poetry.source]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu118"
+priority = "explicit"
+
+
+[tool.poetry.group.dev.dependencies]
+notebook = "^7.2.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
