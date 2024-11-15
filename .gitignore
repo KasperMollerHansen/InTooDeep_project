@@ -8,7 +8,8 @@ __pycache__/
 
 # data
 data/*
-!data/
+!data/rotations.csv
+*poetry.lock
 
 # Distribution / packaging
 .Python
