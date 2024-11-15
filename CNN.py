@@ -16,4 +16,3 @@ import numpy as np
 
 #%%
 # Evaluation
-hej = 1
