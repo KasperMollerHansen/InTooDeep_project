@@ -123,18 +123,46 @@ class CNN_Regressor_4(nn.Module):
 
 model = CNN_Regressor_4().to(device)
 summary(model, input_size = (6, 180, 320), device=device)
+
+# Loss function
+class DualAngularLoss(nn.Module):
+    def __init__(self):
+        super(DualAngularLoss, self).__init__()
+    
+    def forward(self, pred, target, is_degrees=False):
+        """
+        pred: Tensor of shape (batch_size, 2), predicted angles (can be in degrees or radians)
+        target: Tensor of shape (batch_size, 2), target angles (can be in degrees or radians)
+        is_degrees: Boolean indicating if the input angles are in degrees (default: False)
+        """
+        # Convert degrees to radians if needed
+        if is_degrees:
+            pred_rad = pred * (torch.pi / 180)
+            target_rad = target * (torch.pi / 180)
+        else:
+            pred_rad = pred
+            target_rad = target
+
+        # Compute angular difference for both angles (in radians)
+        diff1 = 1 - torch.cos(pred_rad[:, 0] - target_rad[:, 0])
+        diff2 = 1 - torch.cos(pred_rad[:, 1] - target_rad[:, 1])
+        
+        # Mean over the batch
+        loss = torch.mean(diff1**2 + diff2**2)
+        return loss
+
 #%%
 # Load data
 wind_dataset = WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir='data/', images_num=2, transform_size=np.array([720,1280])/4)
 train_dataset, test_dataset = WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
-trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=64, shuffle=True)
-testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=64, shuffle=True)
+trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=8, shuffle=True)
+testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=8, shuffle=True)
 # Load model
 model = CNN_Regressor_4().to(device)
 # Loss function
-criterion = nn.MSELoss()
+criterion = DualAngularLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
 #%%
 # Training
@@ -161,7 +189,7 @@ class Trainer:
 
             # Compute the prediction error
             pred = model(inputs)
-            loss = criterion(pred, labels)
+            loss = criterion(pred[0], labels[0], is_degrees=True)
             running_loss += loss.item()
 
             # Backpropagation
@@ -184,7 +212,7 @@ class Trainer:
 
                 # Compute the prediction error
                 pred = model(inputs)
-                loss = criterion(pred, labels)
+                loss = criterion(pred, labels, is_degrees=True)
                 running_loss += loss.item()
 
         avg_loss = running_loss / len(dataloader)
