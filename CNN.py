@@ -48,10 +48,10 @@ class WindTurbineDataset(Dataset):
         return len(self.rotations_df)
     
     def _transform(self, transform_size, image):
-        #Get size of the image
-        x,y = image.size
-
+    
         if transform_size.any() == None:
+            #Get size of the image
+            x,y = image.size
             transform = transforms.Compose([
             transforms.Resize((int(y),int(x))), # Resizing the image to 360x640
             transforms.ToTensor()
@@ -93,61 +93,49 @@ class WindTurbineDataloader(Dataset):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 #%%
 # Neuralt Network
-class CNN_Regressor(nn.Module):
-    def __init__(self,input_channels=6):
+class CNN_Regressor_4(nn.Module):
+    def __init__(self):
         super().__init__()
-        
-        # Original Image (720, 1280, 6) -> Downscaled by factor 2 -> Input image (360, 640, 6)
+
         # Original Image (720, 1280, 6) -> Downscaled by factor 4 -> Input image (180, 320, 6)
         
         self.convolution_stack = nn.Sequential(
-            nn.Conv2d(in_channels = input_channels, out_channels = 18, kernel_size = 25, stride = 1, bias = True), # Size (336, 616, 18), (156, 296, 18)
+            nn.Conv2d(in_channels = 6, out_channels = 12, kernel_size = 15, stride = 1, bias = True), # Size (164, 306, 12)
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=input_channels, stride=6), # Size (56, 102, 18), (26, 50, 18)
+            nn.MaxPool2d(kernel_size=6, stride=6), # Size (27, 51, 12)
             
-            nn.Conv2d(in_channels = 18, out_channels = 36, kernel_size = 11, stride = 1, bias = True), # Size (46, 92, 36), (16, 40, 36)
+            nn.Conv2d(in_channels = 12, out_channels = 24, kernel_size = 7, stride = 1, bias = True), # Size (21, 45, 24)
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size = 6, stride = 6), # Size (7, 15, 36), (2, 6, 36)      
+            nn.MaxPool2d(kernel_size = 6, stride = 6), # Size (3, 7, 24)
         )
         
-        self.linear_stack_2 = nn.Sequential(
+        self.linear_stack = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features = 7*15*36, out_features = 256, bias = True),
-            nn.ReLU(),
-            nn.Linear(in_features = 256, out_features = 128, bias = True),
-            nn.ReLU(),
-            nn.Linear(in_features = 128, out_features = 2, bias = True)
-        )
-
-        self.linear_stack_4 = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(in_features = 2*6*36, out_features = 128, bias = True),
+            nn.Linear(in_features = 3*7*24, out_features = 128, bias = True),
             nn.ReLU(),
             nn.Linear(in_features = 128, out_features = 2, bias = True)
         )
     
     def forward(self, x):
         conv_out = self.convolution_stack(x)
-        try:
-            fc_out = self.linear_stack_2(conv_out)
-        except:
-            fc_out = self.linear_stack_4(conv_out)
+        fc_out = self.linear_stack(conv_out)
         return fc_out
 
-model = CNN_Regressor(input_channels=6).to(device)
+model = CNN_Regressor_4().to(device)
 summary(model, input_size = (6, 180, 320), device=device)
 #%%
 # Load data
 wind_dataset = WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir='data/', images_num=2, transform_size=np.array([720,1280])/4)
 train_dataset, test_dataset = WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
-trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=4, shuffle=True)
-testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=4, shuffle=True)
+trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=64, shuffle=True)
+testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=64, shuffle=True)
 # Load model
-model = CNN_Regressor(input_channels=6).to(device)
+model = CNN_Regressor_4().to(device)
 # Loss function
 criterion = nn.MSELoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
 #%%
 # Training
 class Trainer:
@@ -180,7 +168,8 @@ class Trainer:
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-
+            
+        schedular.step()
         avg_loss = running_loss / len(dataloader)
         return avg_loss
     
