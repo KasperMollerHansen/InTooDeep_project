@@ -122,7 +122,7 @@ class CNN_Regressor_4(nn.Module):
         super().__init__()
         # Original Image (720, 1280, 6) -> Downscaled by factor 4 -> Input image (180, 320, 6)
         self.convolution_stack = nn.Sequential(
-            nn.Conv2d(in_channels=6, out_channels=16, kernel_size=7, stride=1, padding=3),  # (180, 320, 16)
+            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=7, stride=1, padding=3),  # (180, 320, 16)
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),  # (90, 160, 16)
 
@@ -140,7 +140,7 @@ class CNN_Regressor_4(nn.Module):
             nn.Linear(in_features=5 * 5 * 64, out_features=128),
             nn.ReLU(),
             nn.Dropout(p=0.3),  # Dropout to reduce overfitting
-            nn.Linear(in_features=128, out_features=2)  # Output two angles
+            nn.Linear(in_features=128, out_features=1)  # Output one angle
         )
 
     def forward(self, x):
@@ -149,14 +149,16 @@ class CNN_Regressor_4(nn.Module):
         return x
 
 model = CNN_Regressor_4().to(device)
-summary(model, input_size = (6, 180, 320), device=device)
+summary(model, input_size = (3, 180, 320), device=device)
 
 # Loss function
 class DualAngularLoss(nn.Module):
     def __init__(self):
         super(DualAngularLoss, self).__init__()
     
-    def forward(self, pred, target, is_degrees=False):
+    def forward(self, pred_init, target_init, is_degrees=False):
+        pred = pred_init
+        target = target_init
         """
         Computes the loss for angular data.
         pred: Tensor of shape (batch_size, 2), predicted angles (in degrees or radians).
@@ -177,7 +179,7 @@ class DualAngularLoss(nn.Module):
 
 # %%
 # Load data
-wind_dataset = WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir='data/', images_num=2, transform_size=np.array([720,1280])/4)
+wind_dataset = WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir='data/', images_num=1, transform_size=np.array([720,1280])/4)
 train_dataset, test_dataset = WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
 trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=16, shuffle=True)
 testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=16, shuffle=True)
@@ -209,10 +211,12 @@ class Trainer:
 
         for i, data in enumerate(dataloader):
             inputs, labels = data
+            # Only get the first label
+            labels = labels[:, 0].flatten()
             inputs, labels = inputs.to(device), labels.to(device)
 
             # Compute the prediction error
-            pred = model(inputs)
+            pred = model(inputs).flatten()
             loss = criterion(pred, labels, is_degrees=True)
             running_loss += loss.item()
 
@@ -232,10 +236,11 @@ class Trainer:
         with torch.no_grad():
             for _, data in enumerate(dataloader):
                 inputs, labels = data
+                labels = labels[:, 0].flatten()
                 inputs, labels = inputs.to(device), labels.to(device)
 
                 # Compute the prediction error
-                pred = model(inputs)
+                pred = model(inputs).flatten()
                 loss = criterion(pred, labels, is_degrees=True)
                 running_loss += loss.item()
 
