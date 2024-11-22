@@ -25,6 +25,7 @@ nbformat = "^5.10.4"
 torchsummary = "^1.5.1"
 nbconvert = "^7.16.4"
 pypdf2 = "^3.0.1"
+opencv-python = "^4.10.0.84"
 
 [[tool.poetry.source]]
 name = "pytorch-gpu"

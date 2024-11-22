@@ -115,14 +115,15 @@ class WindTurbineDataloader(Dataset):
     @staticmethod
     def dataloader(dataset, batch_size=4, shuffle=True):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    
+
 # %%
-# Neuralt Network
 class CNN_Regressor_4(nn.Module):
     def __init__(self):
         super().__init__()
         # Original Image (720, 1280, 6) -> Downscaled by factor 4 -> Input image (180, 320, 6)
         self.convolution_stack = nn.Sequential(
-            nn.Conv2d(in_channels=6, out_channels=16, kernel_size=7, stride=1, padding=3),  # (180, 320, 16)
+            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=7, stride=1, padding=3),  # (180, 320, 16)
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),  # (90, 160, 16)
 
@@ -140,7 +141,7 @@ class CNN_Regressor_4(nn.Module):
             nn.Linear(in_features=5 * 5 * 64, out_features=128),
             nn.ReLU(),
             nn.Dropout(p=0.3),  # Dropout to reduce overfitting
-            nn.Linear(in_features=128, out_features=2)  # Output two angles
+            nn.Linear(in_features=128, out_features=1)  # Output one angle
         )
 
     def forward(self, x):
@@ -149,14 +150,16 @@ class CNN_Regressor_4(nn.Module):
         return x
 
 model = CNN_Regressor_4().to(device)
-summary(model, input_size = (6, 180, 320), device=device)
+summary(model, input_size = (3, 180, 320), device=device)
 
 # Loss function
-class DualAngularLoss(nn.Module):
+class AngularLoss(nn.Module):
     def __init__(self):
-        super(DualAngularLoss, self).__init__()
+        super(AngularLoss, self).__init__()
     
-    def forward(self, pred, target, is_degrees=False):
+    def forward(self, pred_init, target_init, is_degrees=False):
+        pred = pred_init
+        target = target_init
         """
         Computes the loss for angular data.
         pred: Tensor of shape (batch_size, 2), predicted angles (in degrees or radians).
@@ -177,17 +180,17 @@ class DualAngularLoss(nn.Module):
 
 # %%
 # Load data
-wind_dataset = WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir='data/', images_num=2, transform_size=np.array([720,1280])/4)
+wind_dataset = WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir='data/', images_num=1, transform_size=np.array([720,1280])/2)
 train_dataset, test_dataset = WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
 trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=16, shuffle=True)
 testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=16, shuffle=True)
 # Load model
 model = CNN_Regressor_4().to(device)
 # Loss function
-criterion = DualAngularLoss()
+criterion = AngularLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
-schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
 # %%
 # Training
 class Trainer:
@@ -209,10 +212,12 @@ class Trainer:
 
         for i, data in enumerate(dataloader):
             inputs, labels = data
+            # Only get the first label
+            labels = labels[:, 0].flatten()
             inputs, labels = inputs.to(device), labels.to(device)
 
             # Compute the prediction error
-            pred = model(inputs)
+            pred = model(inputs).flatten()
             loss = criterion(pred, labels, is_degrees=True)
             running_loss += loss.item()
 
@@ -232,10 +237,11 @@ class Trainer:
         with torch.no_grad():
             for _, data in enumerate(dataloader):
                 inputs, labels = data
+                labels = labels[:, 0].flatten()
                 inputs, labels = inputs.to(device), labels.to(device)
 
                 # Compute the prediction error
-                pred = model(inputs)
+                pred = model(inputs).flatten()
                 loss = criterion(pred, labels, is_degrees=True)
                 running_loss += loss.item()
 
@@ -249,6 +255,34 @@ class Trainer:
             self.train_loss.append(train_loss)
             self.test_loss.append(test_loss)
             print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {train_loss}, Test Loss: {test_loss}")
+
+
+# %%
+# Small trainer
+
+train_size = 20
+small_dataset, _ = torch.utils.data.random_split(wind_dataset, [train_size, len(wind_dataset) - train_size])
+
+# Adjust the batch size if needed
+batch_size = 8  # Increase the batch size if the dataset size is larger
+
+# Create a DataLoader for the small dataset
+small_loader = WindTurbineDataloader.dataloader(small_dataset, batch_size=batch_size, shuffle=True)
+
+# Train the model with the slightly larger dataset
+small_trainer = Trainer(model, small_loader, small_loader, criterion, optimizer, device, epochs=50)
+small_trainer.train_model()
+
+
+# Plot the training and testing loss
+plt.plot(small_trainer.train_loss, label="Train Loss")
+plt.plot(small_trainer.test_loss, label="Test Loss")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.legend()
+plt.grid()
+plt.show()
+
 #%%
 trainer = Trainer(model, trainloader, testloader, criterion, optimizer, device, epochs=20)
 trainer.train_model()
@@ -260,8 +294,6 @@ plt.ylabel("Loss")
 plt.legend()
 plt.grid()
 plt.show()
-
-
 #%%
 # Testing
 
