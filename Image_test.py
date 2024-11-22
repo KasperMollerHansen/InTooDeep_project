@@ -7,53 +7,44 @@ import matplotlib.pyplot as plt
 # Load the image
 image = cv2.imread('data/camera_01/image_01_1.jpg')  # Replace with your image file path
 
-# Convert the image to HSV
-image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+# Convert the image to RGB (OpenCV uses BGR)
+image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-# Split the channels
-h, s, v = cv2.split(image_hsv)
+# Blur the image
+image = cv2.GaussianBlur(image, (15, 15), 0)
 
-# Display all the channels
-plt.figure(figsize=(20, 10))
+# Convert the image to grayscale
+image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
-plt.subplot(1, 3, 1)
-plt.title("Hue channel")
-plt.imshow(h, cmap='gray')
-plt.axis("off")
+# Use horizontal Sobel filter
+sobel_x = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=5)
 
-plt.subplot(1, 3, 2)
-plt.title("Saturation channel")
-plt.imshow(s, cmap='gray')
-plt.axis("off")
+# Use vertical Sobel filter
+sobel_y = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=5)
 
-plt.subplot(1, 3, 3)
-plt.title("Value channel")
-plt.imshow(v, cmap='gray')
-plt.axis("off")
+# Combine the two Sobel filters
+sobel = np.sqrt(sobel_x**2 + sobel_y**2)
 
+# Plot the original image, the horizontal Sobel filtered image, the vertical Sobel filtered image, and the combined Sobel filtered image
+plt.figure(figsize=(20, 20))
+plt.subplot(2, 2, 1)
+plt.title('Original Image')
+plt.imshow(image, cmap='gray')
+plt.axis('off')
+plt.subplot(2, 2, 2)
+plt.title('Sobel X')
+plt.imshow(sobel_x, cmap='gray')
+plt.axis('off')
+plt.subplot(2, 2, 3)
+plt.title('Sobel Y')
+plt.imshow(sobel_y, cmap='gray')
+plt.axis('off')
+plt.subplot(2, 2, 4)
+plt.title('Sobel')
+plt.imshow(sobel, cmap='gray')
+plt.axis('off')
 plt.show()
 
-# Do the same for the original image (RGB) channels
-r, g, b = cv2.split(image)
-
-plt.figure(figsize=(20, 10))
-
-plt.subplot(1, 3, 1)
-plt.title("Red channel")
-plt.imshow(r, cmap='gray')
-plt.axis("off")
-
-plt.subplot(1, 3, 2)
-plt.title("Green channel")
-plt.imshow(g, cmap='gray')
-plt.axis("off")
-
-plt.subplot(1, 3, 3)
-plt.title("Blue channel")
-plt.imshow(b, cmap='gray')
-plt.axis("off")
-
-plt.show()
 
 
 

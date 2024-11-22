@@ -115,41 +115,7 @@ class WindTurbineDataloader(Dataset):
     @staticmethod
     def dataloader(dataset, batch_size=4, shuffle=True):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-# %%
-# Neuralt Network
-class CNN_Regressor_2(nn.Module):
-    def __init__(self):
-        super().__init__()
-        # Original Image (720, 1280, 3) -> Downscaled by factor 2 -> Input image (360, 640, 3)
-        self.convolution_stack = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=7, stride=1, padding=3),  # (360, 640, 16)
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),  # (180, 320, 16)
-
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=1, padding=2),  # (180, 320, 32)
-            nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((90, 160)),  # (90, 160, 32)
-
-            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1),  # (90, 160, 64)
-            nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((45, 80))  # (45, 80, 64)
-        )
-
-        self.linear_stack = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(in_features=45 * 80 * 64, out_features=128),
-            nn.ReLU(),
-            nn.Dropout(p=0.3),  # Dropout to reduce overfitting
-            nn.Linear(in_features=128, out_features=1)  # Output one angle
-        )
-
-    def forward(self, x):
-        x = self.convolution_stack(x)
-        x = self.linear_stack(x)
-        return x
-
-model = CNN_Regressor_2().to(device)
-summary(model, input_size=(3, 360, 640), device=device)
+    
 
 # %%
 class CNN_Regressor_4(nn.Module):
@@ -219,12 +185,12 @@ train_dataset, test_dataset = WindTurbineDataloader.train_test_split(wind_datase
 trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=16, shuffle=True)
 testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=16, shuffle=True)
 # Load model
-model = CNN_Regressor_2().to(device)
+model = CNN_Regressor_4().to(device)
 # Loss function
 criterion = AngularLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
-schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
 # %%
 # Training
 class Trainer:
@@ -289,6 +255,34 @@ class Trainer:
             self.train_loss.append(train_loss)
             self.test_loss.append(test_loss)
             print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {train_loss}, Test Loss: {test_loss}")
+
+
+# %%
+# Small trainer
+
+train_size = 20
+small_dataset, _ = torch.utils.data.random_split(wind_dataset, [train_size, len(wind_dataset) - train_size])
+
+# Adjust the batch size if needed
+batch_size = 8  # Increase the batch size if the dataset size is larger
+
+# Create a DataLoader for the small dataset
+small_loader = WindTurbineDataloader.dataloader(small_dataset, batch_size=batch_size, shuffle=True)
+
+# Train the model with the slightly larger dataset
+small_trainer = Trainer(model, small_loader, small_loader, criterion, optimizer, device, epochs=50)
+small_trainer.train_model()
+
+
+# Plot the training and testing loss
+plt.plot(small_trainer.train_loss, label="Train Loss")
+plt.plot(small_trainer.test_loss, label="Test Loss")
+plt.xlabel("Epochs")
+plt.ylabel("Loss")
+plt.legend()
+plt.grid()
+plt.show()
+
 #%%
 trainer = Trainer(model, trainloader, testloader, criterion, optimizer, device, epochs=20)
 trainer.train_model()
@@ -300,8 +294,6 @@ plt.ylabel("Loss")
 plt.legend()
 plt.grid()
 plt.show()
-
-
 #%%
 # Testing
 
