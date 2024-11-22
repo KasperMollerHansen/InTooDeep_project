@@ -117,6 +117,41 @@ class WindTurbineDataloader(Dataset):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 # %%
 # Neuralt Network
+class CNN_Regressor_2(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # Original Image (720, 1280, 3) -> Downscaled by factor 2 -> Input image (360, 640, 3)
+        self.convolution_stack = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=7, stride=1, padding=3),  # (360, 640, 16)
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),  # (180, 320, 16)
+
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=1, padding=2),  # (180, 320, 32)
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d((90, 160)),  # (90, 160, 32)
+
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1),  # (90, 160, 64)
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d((45, 80))  # (45, 80, 64)
+        )
+
+        self.linear_stack = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=45 * 80 * 64, out_features=128),
+            nn.ReLU(),
+            nn.Dropout(p=0.3),  # Dropout to reduce overfitting
+            nn.Linear(in_features=128, out_features=1)  # Output one angle
+        )
+
+    def forward(self, x):
+        x = self.convolution_stack(x)
+        x = self.linear_stack(x)
+        return x
+
+model = CNN_Regressor_2().to(device)
+summary(model, input_size=(3, 360, 640), device=device)
+
+# %%
 class CNN_Regressor_4(nn.Module):
     def __init__(self):
         super().__init__()
@@ -152,9 +187,9 @@ model = CNN_Regressor_4().to(device)
 summary(model, input_size = (3, 180, 320), device=device)
 
 # Loss function
-class DualAngularLoss(nn.Module):
+class AngularLoss(nn.Module):
     def __init__(self):
-        super(DualAngularLoss, self).__init__()
+        super(AngularLoss, self).__init__()
     
     def forward(self, pred_init, target_init, is_degrees=False):
         pred = pred_init
@@ -179,14 +214,14 @@ class DualAngularLoss(nn.Module):
 
 # %%
 # Load data
-wind_dataset = WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir='data/', images_num=1, transform_size=np.array([720,1280])/4)
+wind_dataset = WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir='data/', images_num=1, transform_size=np.array([720,1280])/2)
 train_dataset, test_dataset = WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
 trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=16, shuffle=True)
 testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=16, shuffle=True)
 # Load model
-model = CNN_Regressor_4().to(device)
+model = CNN_Regressor_2().to(device)
 # Loss function
-criterion = DualAngularLoss()
+criterion = AngularLoss()
 # Optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
 schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
