@@ -1,7 +1,7 @@
 # %%
 # Load packages
 import os
-import sklearn
+import cv2
 import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
@@ -40,6 +40,7 @@ class WindTurbineDataset(Dataset):
         csv_path =  os.path.join(self.root_dir, csv_file)
         self.rotations_df = pd.read_csv(csv_path)
         self.transform_size = transform_size
+        self.images_num = images_num
         self.image_folder = []
         for i in range(images_num):
             self.image_folder.append(image_folder+f"_0{i+1}/")
@@ -48,21 +49,44 @@ class WindTurbineDataset(Dataset):
         return len(self.rotations_df)
     
     def _transform(self, transform_size, image):
-    
-        if transform_size.any() == None:
-            #Get size of the image
-            x,y = image.size
-            transform = transforms.Compose([
-            transforms.Resize((int(y),int(x))), # Resizing the image to 360x640
-            transforms.ToTensor()
-            ])
-        else:
-            transform = transforms.Compose([
-            transforms.Resize((int(transform_size[0]),int(transform_size[1]))), # Resizing the image to 360x640
-            transforms.ToTensor()
-        ])
-        return transform(image)
+        # Convert image to tensor first to determine its shape
+        to_tensor = transforms.ToTensor()
+        tensor_image = to_tensor(image)
+        
+        # Dynamically calculate mean and std based on the number of channels
+        num_channels = tensor_image.shape[0]
+        mean = [0.5 for _ in range(num_channels)]
+        std = [0.5 for _ in range(num_channels)]
+        normalize = transforms.Normalize(mean=mean, std=std)
 
+        # Apply contrast and brightness adjustment using cv2
+        alpha = 1.5  # Contrast control (1.0-3.0)
+        beta = 10     # Brightness control (0-100)
+        
+        # Convert image to numpy array for cv2 operations
+        img_cv = np.array(image)
+        
+        # Apply contrast and brightness adjustment
+        img_adjusted = cv2.convertScaleAbs(img_cv, alpha=alpha, beta=beta)
+
+        # Convert back to PIL Image for further transforms
+        img_adjusted = Image.fromarray(img_adjusted)
+
+        # Determine resize size
+        if transform_size is None:
+            x, y = image.size
+            size_transform = transforms.Resize((int(y), int(x)))
+        else:
+            size_transform = transforms.Resize((int(transform_size[0]), int(transform_size[1])))
+
+        # Compose transformations
+        transform = transforms.Compose([
+            size_transform,
+            transforms.ToTensor(),  # Convert to tensor
+            #normalize               # Normalize with dynamically calculated mean and std
+        ])
+        return transform(img_adjusted)
+    
 
     def __getitem__(self, idx):
         # Get the image file path
@@ -91,52 +115,80 @@ class WindTurbineDataloader(Dataset):
     @staticmethod
     def dataloader(dataset, batch_size=4, shuffle=True):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-#%%
+# %%
 # Neuralt Network
 class CNN_Regressor_4(nn.Module):
     def __init__(self):
         super().__init__()
-
         # Original Image (720, 1280, 6) -> Downscaled by factor 4 -> Input image (180, 320, 6)
-        
         self.convolution_stack = nn.Sequential(
-            nn.Conv2d(in_channels = 6, out_channels = 12, kernel_size = 15, stride = 1, bias = True), # Size (164, 306, 12)
+            nn.Conv2d(in_channels=6, out_channels=16, kernel_size=7, stride=1, padding=3),  # (180, 320, 16)
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=6, stride=6), # Size (27, 51, 12)
-            
-            nn.Conv2d(in_channels = 12, out_channels = 24, kernel_size = 7, stride = 1, bias = True), # Size (21, 45, 24)
+            nn.MaxPool2d(kernel_size=2, stride=2),  # (90, 160, 16)
+
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=5, stride=1, padding=2),  # (90, 160, 32)
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size = 6, stride = 6), # Size (3, 7, 24)
+            nn.MaxPool2d(kernel_size=2, stride=2),  # (45, 80, 32)
+
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1),  # (45, 80, 64)
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d((5, 5))  # (5, 5, 64)
         )
-        
+
         self.linear_stack = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features = 3*7*24, out_features = 128, bias = True),
+            nn.Linear(in_features=5 * 5 * 64, out_features=128),
             nn.ReLU(),
-            nn.Linear(in_features = 128, out_features = 2, bias = True)
+            nn.Dropout(p=0.3),  # Dropout to reduce overfitting
+            nn.Linear(in_features=128, out_features=2)  # Output two angles
         )
-    
+
     def forward(self, x):
-        conv_out = self.convolution_stack(x)
-        fc_out = self.linear_stack(conv_out)
-        return fc_out
+        x = self.convolution_stack(x)
+        x = self.linear_stack(x)
+        return x
 
 model = CNN_Regressor_4().to(device)
 summary(model, input_size = (6, 180, 320), device=device)
-#%%
+
+# Loss function
+class DualAngularLoss(nn.Module):
+    def __init__(self):
+        super(DualAngularLoss, self).__init__()
+    
+    def forward(self, pred, target, is_degrees=False):
+        """
+        Computes the loss for angular data.
+        pred: Tensor of shape (batch_size, 2), predicted angles (in degrees or radians).
+        target: Tensor of shape (batch_size, 2), target angles (in degrees or radians).
+        is_degrees: Boolean indicating if the angles are in degrees (default: False).
+        """
+        if is_degrees:
+            pred = pred * (torch.pi / 180)
+            target = target * (torch.pi / 180)
+        
+        # Compute smallest angular difference
+        angular_diff = torch.atan2(torch.sin(pred - target), torch.cos(pred - target))
+        
+        # Loss is the mean squared angular difference
+        loss = torch.mean(angular_diff ** 2)
+        return loss
+
+
+# %%
 # Load data
 wind_dataset = WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir='data/', images_num=2, transform_size=np.array([720,1280])/4)
 train_dataset, test_dataset = WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
-trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=64, shuffle=True)
-testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=64, shuffle=True)
+trainloader = WindTurbineDataloader.dataloader(train_dataset, batch_size=16, shuffle=True)
+testloader = WindTurbineDataloader.dataloader(test_dataset, batch_size=16, shuffle=True)
 # Load model
 model = CNN_Regressor_4().to(device)
 # Loss function
-criterion = nn.MSELoss()
+criterion = DualAngularLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0005)
 schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
-#%%
+# %%
 # Training
 class Trainer:
     train_loss = []
@@ -155,13 +207,13 @@ class Trainer:
         model.train()
         running_loss = 0.0
 
-        for _, data in enumerate(dataloader):
+        for i, data in enumerate(dataloader):
             inputs, labels = data
             inputs, labels = inputs.to(device), labels.to(device)
 
             # Compute the prediction error
             pred = model(inputs)
-            loss = criterion(pred, labels)
+            loss = criterion(pred, labels, is_degrees=True)
             running_loss += loss.item()
 
             # Backpropagation
@@ -184,7 +236,7 @@ class Trainer:
 
                 # Compute the prediction error
                 pred = model(inputs)
-                loss = criterion(pred, labels)
+                loss = criterion(pred, labels, is_degrees=True)
                 running_loss += loss.item()
 
         avg_loss = running_loss / len(dataloader)
@@ -198,7 +250,7 @@ class Trainer:
             self.test_loss.append(test_loss)
             print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {train_loss}, Test Loss: {test_loss}")
 #%%
-trainer = Trainer(model, trainloader, testloader, criterion, optimizer, device, epochs=10)
+trainer = Trainer(model, trainloader, testloader, criterion, optimizer, device, epochs=20)
 trainer.train_model()
 # Plot the training and testing loss
 plt.plot(trainer.train_loss, label="Train Loss")
@@ -206,6 +258,7 @@ plt.plot(trainer.test_loss, label="Test Loss")
 plt.xlabel("Epochs")
 plt.ylabel("Loss")
 plt.legend()
+plt.grid()
 plt.show()
 
 
