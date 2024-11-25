@@ -39,8 +39,8 @@ def transform(image):
 wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir=root_dir+'/data/', images_num=1, transform=transform)
 
 train_dataset, test_dataset = wt.WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
-trainloader = wt.WindTurbineDataloader.dataloader(train_dataset, batch_size=16*2, shuffle=True)
-testloader = wt.WindTurbineDataloader.dataloader(test_dataset, batch_size=16*2, shuffle=True)
+trainloader = wt.WindTurbineDataloader.dataloader(train_dataset, batch_size=16, shuffle=True)
+testloader = wt.WindTurbineDataloader.dataloader(test_dataset, batch_size=16, shuffle=True)
 
 model = nw.CNN_Regressor_4_conv().to(device)
 try:
@@ -52,10 +52,10 @@ except:
 criterion = wt.AngularLoss()
 # Optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
+schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7)
 
 # %%
-trainer = wt.Trainer_base_angle(model, trainloader, testloader, criterion, optimizer, device, accu_th=20, epochs=2)
+trainer = wt.Trainer_base_angle(model, trainloader, testloader, criterion, optimizer, device, accu_th=20, epochs=40)
 model = trainer.train_model()
 
 # Plot the training and testing loss
@@ -81,5 +81,6 @@ plt.show()
 # %%
 # Save the model
 torch.save(model.state_dict(), model_name)
+print("Model saved successfully")
 
 # %%
