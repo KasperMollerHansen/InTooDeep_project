@@ -123,7 +123,7 @@ class AngularLoss(nn.Module):
         return loss
 
 # Training
-class Trainer():
+class Trainer_base_angle():
     train_loss = []
     train_accuracy = []
     test_loss = []

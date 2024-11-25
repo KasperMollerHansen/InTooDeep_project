@@ -55,7 +55,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.5)
 
 # %%
-trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer, device, accu_th=20, epochs=2)
+trainer = wt.Trainer_base_angle(model, trainloader, testloader, criterion, optimizer, device, accu_th=20, epochs=2)
 model = trainer.train_model()
 
 # Plot the training and testing loss
