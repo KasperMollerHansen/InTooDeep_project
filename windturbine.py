@@ -2,6 +2,7 @@
 import os
 import sys
 import torch
+import math
 import pandas as pd
 import numpy as np
 from torch import nn
@@ -95,6 +96,7 @@ class WindTurbineDataloader(Dataset):
     def dataloader(dataset, batch_size=4, shuffle=True):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
+#Loss functions
 class AngularLoss(nn.Module):
     def __init__(self):
         super(AngularLoss, self).__init__()
@@ -121,6 +123,33 @@ class AngularLoss(nn.Module):
         # Loss is the mean squared angular difference
         loss = torch.mean((angular_diff)** 2)
         return loss
+    
+class AngularVectorLoss(nn.Module):
+    def __init__(self):
+        super(AngularLoss, self).__init__()
+    
+    def forward(self, pred_init, target_init, is_degrees=False):
+        pred = pred_init
+        target = target_init
+        """
+        Computes the loss for angular data.
+        pred: Tensor of shape (batch_size, 2), predicted angles (in degrees or radians).
+        target: Tensor of shape (batch_size, 2), target angles (in degrees or radians).
+        is_degrees: Boolean indicating if the angles are in degrees (default: False).
+        """
+        if is_degrees:
+            pred = pred * (torch.pi / 180)
+            target = target * (torch.pi / 180)
+        
+        # Represent angles as 2D vectors
+        pred_vec = torch.stack((torch.sin(pred), torch.cos(pred)), dim=-1)
+        target_vec = torch.stack((torch.sin(target), torch.cos(target)), dim=-1)
+
+        # Compute vector difference and its norm
+        diff = pred_vec - target_vec
+        diff = diff * 10  # Scale by a factor of 10
+        loss = torch.mean(torch.norm(diff, dim=-1) ** 2)  # Mean squared norm of differences
+        return loss
 
 # Training
 class Trainer_base_angle():
@@ -146,8 +175,10 @@ class Trainer_base_angle():
 
         diff = np.abs(pred - target)
         if is_degrees:
+            diff = math.fmod(diff, 360)
             diff = np.minimum(diff, 360 - diff)
         else:
+            diff = math.fmod(diff, 2*np.pi)
             diff = np.minimum(diff, 2*np.pi - diff)
         
         within_threshold = np.mean(diff <= threshold)
