@@ -46,3 +46,11 @@ if __name__ == "__main__":
     # Print summary for a (3, 300, 300) input
     summary(model, input_size=(3, 300, 300), device=device.type)
 # %%
+ResNet34 = torch.hub.load('pytorch/vision:v0.20.0', 'resnet34')
+ResNet34.fc = torch.nn.Linear(in_features=512,out_features=1,bias=True)
+if __name__ == "__main__":
+    # Set device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = ResNet34.to(device)
+    # Print summary for a (3, 300, 300) input
+    summary(model, input_size=(3, 300, 300), device=device.type)

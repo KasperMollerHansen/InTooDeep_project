@@ -2,7 +2,6 @@
 import os
 import sys
 import torch
-import math
 import pandas as pd
 import numpy as np
 from torch import nn
@@ -126,7 +125,7 @@ class AngularLoss(nn.Module):
     
 class AngularVectorLoss(nn.Module):
     def __init__(self):
-        super(AngularLoss, self).__init__()
+        super(AngularVectorLoss, self).__init__()
     
     def forward(self, pred_init, target_init, is_degrees=False):
         pred = pred_init
@@ -175,10 +174,10 @@ class Trainer_base_angle():
 
         diff = np.abs(pred - target)
         if is_degrees:
-            diff = math.fmod(diff, 360)
+            diff = np.fmod(diff, 360)
             diff = np.minimum(diff, 360 - diff)
         else:
-            diff = math.fmod(diff, 2*np.pi)
+            diff = np.fmod(diff, 2*np.pi)
             diff = np.minimum(diff, 2*np.pi - diff)
         
         within_threshold = np.mean(diff <= threshold)

@@ -1,4 +1,4 @@
-base_angle, blade_angle,camera_01,camera_02
+base_rot, wings_rot,camera_01,camera_02
 254.529757520237,5.181848307751332,image_01_1.jpg,image_02_1.jpg
 303.96832074345764,102.17131349119032,image_01_2.jpg,image_02_2.jpg
 248.93740793044736,14.160724078390047,image_01_3.jpg,image_02_3.jpg
