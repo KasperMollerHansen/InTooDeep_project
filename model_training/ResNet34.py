@@ -51,7 +51,7 @@ try:
 except:
     print("Model not found, training from scratch")
 
-criterion = wt.AngularLoss()
+criterion = wt.AngularVectorLoss()
 # Optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7)
@@ -126,10 +126,3 @@ ax.set_axis_off()
 ax.set_title(f"Pred:{pred_base[2]:.1f}, Actual: {rot_base[2]:.1f}")
 
 plt.tight_layout()
-
-# %%
-labels = 160
-pred = 120
-
-lab_t = np.array((np.cos(labels),np.sin(labels)))
-pred_t = np.array((np.cos(pred),np.sin(pred)))
