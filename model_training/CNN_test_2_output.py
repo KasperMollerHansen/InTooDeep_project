@@ -44,11 +44,11 @@ def transform(image):
     ])
     return transform(image)
 
-angle_type = "base_angle"
+angle_type = "both"
 batch_size = 16
 images_num = 1
-base_angle_range = [10,360-10]
-model = nw.ResNet34
+base_angle_range = [30,360-30] # [360, 0] for all angles
+model = nw.CNN_test_2_output()
 ############################################
 
 wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 
@@ -68,11 +68,11 @@ model = model.to(device)
 
 criterion = wt.AngularVectorLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
 
-trainer = wt.TrainerBaseAngle(model, trainloader, testloader, criterion, optimizer,
-                                 device, epochs=1, accu_th=[20,10,5], schedular=schedular, minimal=False)
+trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
+                     epochs=10, accu_th=[20,10,5], angle_type=angle_type, schedular=schedular, minimal=False)
 # %%
 model = trainer.train_model()
 
@@ -99,68 +99,29 @@ plt.show()
 
 # %%
 # Save the model
-# torch.save(model.to("cpu").state_dict(), model_name)
-# print("Model saved successfully")
+torch.save(model.to("cpu").state_dict(), model_name)
+print("Model saved successfully")
 
 # %%
 # Test the model
-results = trainer.test_model(model.to(device), wind_dataset)
+results = trainer.test_model(model.to(device), wind_dataset, angle_type=angle_type)
 # Sort the results by base angle
 results_sorted = results.sort_values(by="Base_Angle")
 
 # Plot the results
-plt.figure(figsize=(10, 5))
-plt.stem(results_sorted["Base_Angle"], results_sorted["Base_Angle_Error"], label="Base Angle Error")
-plt.xlabel("Base Angle")
-plt.ylabel("Error")
-plt.legend()
-plt.grid()
-plt.show()
-
-
-
-
-
-# %%
-# Old code
-model.eval()
-running_loss = 0.0
-
-with torch.no_grad():
-    for _, data in enumerate(testloader):
-        inputs, labels = data
-        inputs_n, labels_n = inputs.to(device), labels.to(device)
-
-        # Compute the prediction error
-        pred = model(inputs_n)
-        loss = criterion(pred,labels_n,is_degrees=True)
-        running_loss += loss.item()
-avg_loss = running_loss / len(testloader)
-# %%
-im1 = inputs
-im1 = torch.permute(im1,(0,2,3,1)).numpy()
-preds = torch.Tensor.cpu(pred).numpy()
-rot_base = labels[:,0]
-#rot_wings = labels[:,1]
-pred_base = preds[:,0]
-#pred_wings = preds[:,1]
-print(pred_base)
-
-ax = plt.subplot(3,1,1)
-ax.imshow(im1[0,:,:,:])
-ax.set_axis_off()
-ax.set_title(f"Pred: {pred_base[0]:.1f}, Actual: {rot_base[0]:.1f}")
-
-ax = plt.subplot(3,1,2)
-ax.imshow(im1[1,:,:,:])
-ax.set_axis_off()
-ax.set_title(f"Pred: {pred_base[1]:.1f}, Actual: {rot_base[1]:.1f}")
-
-
-ax = plt.subplot(3,1,3)
-ax.imshow(im1[2,:,:,:])
-ax.set_axis_off()
-ax.set_title(f"Pred:{pred_base[2]:.1f}, Actual: {rot_base[2]:.1f}")
-
-plt.tight_layout()
-# %%
+if angle_type == "both" or angle_type == "base_angle":
+    plt.figure(figsize=(10, 3))
+    plt.stem(results_sorted["Base_Angle"], results_sorted["Base_Angle_Error"], label="Base Angle Error")
+    plt.xlabel("Base Angle")
+    plt.ylabel("Error")
+    plt.legend()
+    plt.grid()
+    plt.show()
+if angle_type == "both" or angle_type == "blade_angle":
+    plt.figure(figsize=(10, 3))
+    plt.stem(results_sorted["Base_Angle"], results_sorted["Blade_Angle_Error"], label="Blade Angle Error")
+    plt.xlabel("Blade Angle")
+    plt.ylabel("Error")
+    plt.legend()
+    plt.grid()
+    plt.show()

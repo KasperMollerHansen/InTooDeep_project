@@ -28,6 +28,8 @@ import windturbine as wt
 import networks as nw
 
 #%%
+# Variables
+############################################
 def transform(image):
     # Convert image to array
     image = np.array(image)
@@ -42,29 +44,36 @@ def transform(image):
     ])
     return transform(image)
 
-batch_size = 16*4
+angle_type = "base_angle"
+batch_size = 16
+images_num = 1
+base_angle_range = [10,360-10] # [360, 0] for all angles
+model = nw.CNN_Regressor_4_conv()
+############################################
 
-wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir=root_dir+'/data/', images_num=1, transform=transform)
+wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 
+                                     root_dir=root_dir+'/data/', images_num=images_num, transform=transform, angle_type=angle_type, base_angle_range=base_angle_range)
+print(f"Dataset size: {len(wind_dataset)}")
 
 train_dataset, test_dataset = wt.WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
 trainloader = wt.WindTurbineDataloader.dataloader(train_dataset, batch_size=batch_size, shuffle=True)
 testloader = wt.WindTurbineDataloader.dataloader(test_dataset, batch_size=batch_size, shuffle=True)
 
-model = nw.CNN_Regressor_4_conv().to(device)
 try:
-    model.load_state_dict(torch.load(model_name))
+    model.load_state_dict(torch.load(model_name, map_location=torch.device("cpu")))
     print("Model loaded successfully")
 except:
     print("Model not found, training from scratch")
+model = model.to(device)
 
-criterion = wt.AngularLoss()
+criterion = wt.AngularVectorLoss()
 # Optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7) 
 
+trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
+                     epochs=10, accu_th=[20,10,5], angle_type=angle_type, schedular=schedular, minimal=False)
 # %%
-trainer = wt.TrainerBaseAngle(model, trainloader, testloader, criterion, optimizer,
-                                 device, epochs=2, accu_th=[20,10,5], schedular=schedular, minimal=False)
 model = trainer.train_model()
 
 # Plot the training and testing loss
@@ -77,19 +86,42 @@ plt.xlabel("Epochs")
 plt.ylabel("Loss")
 plt.legend()
 plt.grid()
-# Make subplot with loss and accuracy
-plt.subplot(1, 2, 2)
-plt.plot(trainer.train_accuracy, label="Train Accuracy")
-plt.plot(trainer.test_accuracy, label="Test Accuracy")
-plt.xlabel("Epochs")
-plt.ylabel("Accuracy")
-plt.legend()
-plt.grid()
+if not trainer.minimal:
+    # Make subplot with loss and accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(trainer.train_accuracy, label="Train Accuracy")
+    plt.plot(trainer.test_accuracy, label="Test Accuracy")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.grid()
 plt.show()
 
 # %%
 # Save the model
-torch.save(model.state_dict(), model_name)
+torch.save(model.to("cpu").state_dict(), model_name)
 print("Model saved successfully")
 
 # %%
+# Test the model
+results = trainer.test_model(model.to(device), wind_dataset, angle_type=angle_type)
+# Sort the results by base angle
+results_sorted = results.sort_values(by="Base_Angle")
+
+# Plot the results
+if angle_type == "both" or angle_type == "base_angle":
+    plt.figure(figsize=(10, 3))
+    plt.stem(results_sorted["Base_Angle"], results_sorted["Base_Angle_Error"], label="Base Angle Error")
+    plt.xlabel("Base Angle")
+    plt.ylabel("Error")
+    plt.legend()
+    plt.grid()
+    plt.show()
+if angle_type == "both" or angle_type == "blade_angle":
+    plt.figure(figsize=(10, 3))
+    plt.stem(results_sorted["Base_Angle"], results_sorted["Blade_Angle_Error"], label="Blade Angle Error")
+    plt.xlabel("Blade Angle")
+    plt.ylabel("Error")
+    plt.legend()
+    plt.grid()
+    plt.show()
