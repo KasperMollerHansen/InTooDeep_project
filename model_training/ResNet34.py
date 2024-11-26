@@ -53,31 +53,33 @@ except:
 
 criterion = wt.AngularVectorLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.00001)
+schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
 
 # %%
-trainer = wt.Trainer_base_angle(model, trainloader, testloader, criterion, optimizer, device, accu_th=10, epochs=5)
+trainer = wt.Trainer_base_angle(model, trainloader, testloader, criterion, optimizer,
+                                 device, epochs=2, accu_th=[20,10,5], schedular=schedular, minimal=False)
 model = trainer.train_model()
 
 # Plot the training and testing loss
 plt.figure(figsize=(10, 5))
 # Make subplot with loss and accuracy
 plt.subplot(1, 2, 1)
-plt.plot(trainer.train_accuracy, label="Train Accuracy")
-plt.plot(trainer.test_accuracy, label="Test Accuracy")
-plt.xlabel("Epochs")
-plt.ylabel("Accuracy")
-plt.legend()
-plt.grid()
-# Make subplot with loss and accuracy
-plt.subplot(1, 2, 2)
 plt.plot(trainer.train_loss, label="Train Loss")
 plt.plot(trainer.test_loss, label="Test Loss")
 plt.xlabel("Epochs")
 plt.ylabel("Loss")
 plt.legend()
 plt.grid()
+if not trainer.minimal:
+    # Make subplot with loss and accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(trainer.train_accuracy, label="Train Accuracy")
+    plt.plot(trainer.test_accuracy, label="Test Accuracy")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.grid()
 plt.show()
 
 # %%
@@ -126,3 +128,4 @@ ax.set_axis_off()
 ax.set_title(f"Pred:{pred_base[2]:.1f}, Actual: {rot_base[2]:.1f}")
 
 plt.tight_layout()
+# %%
