@@ -115,8 +115,9 @@ class WindTurbineDataloader(Dataset):
     @staticmethod
     def dataloader(dataset, batch_size=4, shuffle=True):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    
 # %%
-# Neuralt Network
+# Neural Network
 class CNN_Regressor_4(nn.Module):
     def __init__(self):
         super().__init__()
