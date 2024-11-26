@@ -9,6 +9,12 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 device = ("cuda" if torch.cuda.is_available() else "cpu")
+try:
+    import torch_directml
+    device = torch_directml.device()
+    print("DirectML is available, using DirectML")
+except:
+    print("DirectML is not available, using CPU/GPU")
 
 import sys
 import os
@@ -57,7 +63,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7) 
 
 # %%
-trainer = wt.Trainer_base_angle(model, trainloader, testloader, criterion, optimizer,
+trainer = wt.TrainerBaseAngle(model, trainloader, testloader, criterion, optimizer,
                                  device, epochs=2, accu_th=[20,10,5], schedular=schedular, minimal=False)
 model = trainer.train_model()
 

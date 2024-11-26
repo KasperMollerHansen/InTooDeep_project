@@ -25,7 +25,7 @@ def change_csv_file(csv_file):
     df.to_csv('data/rotations_w_images.csv', index=False)
 
 if __name__ == "__main__":
-    change_csv_file("data/rotations.csv")
+    change_csv_file("/data/rotations.csv") # Fix for jupyter
 
 # Dataset
 class WindTurbineDataset(Dataset):
@@ -71,6 +71,7 @@ class WindTurbineDataset(Dataset):
         # Retrieve angles
         base_angle = self.rotations_df.iloc[idx, 0]
         blade_angle = self.rotations_df.iloc[idx, 1]
+        
         angles = torch.tensor([base_angle, blade_angle], dtype=torch.float32)
 
         # Apply transformations
@@ -150,8 +151,8 @@ class AngularVectorLoss(nn.Module):
         loss = torch.mean(torch.norm(diff, dim=-1) ** 2)  # Mean squared norm of differences
         return loss
 
-# Training
-class Trainer_base_angle():
+# Trainers
+class TrainerBaseAngle():
     train_loss = []
     test_loss = []
 
@@ -260,5 +261,50 @@ class Trainer_base_angle():
                 df = pd.DataFrame(table, index=["Angle","Train Accuracy", "Test Accuracy"])
                 print(df.to_string(header=False))
         return self.model
+    
+    def test_model(self, model, dataset):
+        batch_size = 50
+        dataloader = WindTurbineDataloader.dataloader(dataset, batch_size=batch_size, shuffle=False)
+        model.eval()
+        
+        # Create a list to accumulate results
+        results_list = []
+        
+        with torch.no_grad():
+            for i, data in enumerate(dataloader):
+                inputs, labels = data
+                labels = labels[:, 0].flatten()
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+
+                # Compute the prediction
+                pred = model(inputs).flatten()
+
+                # Collect results in a list
+                for j in range(len(labels)):
+                    results_list.append({
+                        "Image": f"image_01_{i*batch_size+j +1}",
+                        "Base_Angle": labels[j].item(),
+                        "Base_Angle_Pred": pred[j].item()
+                    })
+        
+        # Convert the list of results into a DataFrame
+        results = pd.DataFrame(results_list)
+        # Normalize 'Base_Angle_Pred' to the range [0, 360)
+        results["Base_Angle_Pred_Pos"] = np.mod(results["Base_Angle_Pred"], 360)
+
+        # Calculate the 'Base_Angle_Error' as the difference between the predicted and actual angles
+        results["Base_Angle_Error"] = results["Base_Angle_Pred_Pos"] - results["Base_Angle"]
+
+        # Apply the wrapping logic in a vectorized manner using numpy's where
+        results["Base_Angle_Error"] = np.where(
+            results["Base_Angle_Error"] > 180, 
+            results["Base_Angle_Error"] - 360, 
+            np.where(results["Base_Angle_Error"] < -180, 
+                    results["Base_Angle_Error"] + 360, 
+                    results["Base_Angle_Error"])
+        )
+        return results
 
 # %%
+# Test all data
+
