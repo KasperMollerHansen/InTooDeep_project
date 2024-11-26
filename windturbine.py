@@ -153,11 +153,9 @@ class AngularVectorLoss(nn.Module):
 # Training
 class Trainer_base_angle():
     train_loss = []
-    train_accuracy = []
     test_loss = []
-    test_accuracy = []
 
-    def __init__(self, model, trainloader, testloader, criterion, optimizer, device, epochs, accu_th, schedular=None):
+    def __init__(self, model, trainloader, testloader, criterion, optimizer, device, epochs, accu_th, schedular=None, minimal=False):
         self.model = model
         self.trainloader = trainloader
         self.testloader = testloader
@@ -165,8 +163,12 @@ class Trainer_base_angle():
         self.optimizer = optimizer
         self.device = device
         self.epochs = epochs
-        self.accu_th = accu_th
+        self.accu_th = accu_th if isinstance(accu_th, list) else [accu_th]
         self.schedular = schedular
+        self.minimal = minimal
+
+        self.train_accuracy = np.empty([0, len(self.accu_th)])
+        self.test_accuracy = np.empty([0, len(self.accu_th)])
     
     def _accuracy_angle(self, pred, target, threshold, is_degrees=True):
         pred = pred.detach().cpu().numpy()
@@ -179,11 +181,13 @@ class Trainer_base_angle():
         else:
             diff = np.fmod(diff, 2*np.pi)
             diff = np.minimum(diff, 2*np.pi - diff)
-        
-        within_threshold = np.mean(diff <= threshold)
-        accuracy = within_threshold * 100
 
-        return accuracy
+        accu_list = []
+        for i in range (len(threshold)):
+            within_threshold = np.mean(diff <= threshold[i])
+            accuracy = within_threshold * 100
+            accu_list.append(accuracy)
+        return np.array(accu_list)
     
     def _train(self, dataloader, model, criterion, optimizer, device):
         model.train()
@@ -201,8 +205,9 @@ class Trainer_base_angle():
             loss = criterion(pred, labels, is_degrees=True)
             running_loss += loss.item()
             # Accuracy
-            accuracy = self._accuracy_angle(pred, labels, self.accu_th, is_degrees=True)
-            running_accuracy += accuracy
+            if not self.minimal:
+                accuracy = self._accuracy_angle(pred, labels, self.accu_th, is_degrees=True)
+                running_accuracy += accuracy
 
             # Backpropagation
             loss.backward()
@@ -232,8 +237,9 @@ class Trainer_base_angle():
                 loss = criterion(pred, labels, is_degrees=True)
                 running_loss += loss.item()
                 # Accuracy
-                accuracy = self._accuracy_angle(pred, labels, self.accu_th, is_degrees=True)
-                running_accuracy += accuracy
+                if not self.minimal:
+                    accuracy = self._accuracy_angle(pred, labels, self.accu_th, is_degrees=True)
+                    running_accuracy += accuracy
 
         avg_loss = running_loss / len(dataloader)
         avg_accuracy = running_accuracy / len(dataloader)
@@ -243,12 +249,16 @@ class Trainer_base_angle():
         for epoch in range(self.epochs):
             train_loss, train_acc = self._train(self.trainloader, self.model, self.criterion, self.optimizer, self.device)
             self.train_loss.append(train_loss)
-            self.train_accuracy.append(train_acc)
             test_loss, test_acc = self._test(self.testloader, self.model, self.criterion, self.device)
             self.test_loss.append(test_loss)
-            self.test_accuracy.append(test_acc)
             print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {np.round(train_loss,3)}, Test Loss: {np.round(test_loss,3)}")
-            print(f"Train Accuracy: {np.round(train_acc,3)} %, Test Accuracy: {np.round(test_acc,3)} %")
+            
+            if not self.minimal:
+                self.train_accuracy = np.vstack((self.train_accuracy, train_acc))
+                self.test_accuracy = np.vstack((self.test_accuracy, test_acc))
+                table = [self.accu_th,np.round(train_acc,2).tolist(), np.round(test_acc,2).tolist()]
+                df = pd.DataFrame(table, columns=self.accu_th, index=["Train Accuracy", "Test Accuracy"])
+                print(df.to_string(header=False))
         return self.model
 
 # %%
