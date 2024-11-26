@@ -257,7 +257,7 @@ class Trainer_base_angle():
                 self.train_accuracy = np.vstack((self.train_accuracy, train_acc))
                 self.test_accuracy = np.vstack((self.test_accuracy, test_acc))
                 table = [self.accu_th,np.round(train_acc,2).tolist(), np.round(test_acc,2).tolist()]
-                df = pd.DataFrame(table, columns=self.accu_th, index=["Train Accuracy", "Test Accuracy"])
+                df = pd.DataFrame(table, index=["Angle","Train Accuracy", "Test Accuracy"])
                 print(df.to_string(header=False))
         return self.model
 
