@@ -9,6 +9,12 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 device = ("cuda" if torch.cuda.is_available() else "cpu")
+try:
+    import torch_directml
+    device = torch_directml.device()
+    print("DirectML is available, using DirectML")
+except:
+    print("DirectML is not available, using CPU/GPU")
 
 import sys
 import os
@@ -22,6 +28,8 @@ import windturbine as wt
 import networks as nw
 
 #%%
+# Variables
+############################################
 def transform(image):
     # Convert image to array
     image = np.array(image)
@@ -36,56 +44,85 @@ def transform(image):
     ])
     return transform(image)
 
-batch_size = 16*4
+angle_type = "base_angle"
+batch_size = 16
+images_num = 1
+base_angle_range = [10,360-10]
+model = nw.ResNet34
+############################################
 
-wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', root_dir=root_dir+'/data/', images_num=1, transform=transform)
+wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 
+                                     root_dir=root_dir+'/data/', images_num=images_num, transform=transform, angle_type=angle_type, base_angle_range=base_angle_range)
+print(f"Dataset size: {len(wind_dataset)}")
 
 train_dataset, test_dataset = wt.WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
 trainloader = wt.WindTurbineDataloader.dataloader(train_dataset, batch_size=batch_size, shuffle=True)
 testloader = wt.WindTurbineDataloader.dataloader(test_dataset, batch_size=batch_size, shuffle=True)
 
-model = nw.ResNet34.to(device)
 try:
-    model.load_state_dict(torch.load(model_name))
+    model.load_state_dict(torch.load(model_name, map_location=torch.device("cpu")))
     print("Model loaded successfully")
 except:
     print("Model not found, training from scratch")
+model = model.to(device)
 
 criterion = wt.AngularVectorLoss()
 # Optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7)
+schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
 
+trainer = wt.TrainerBaseAngle(model, trainloader, testloader, criterion, optimizer,
+                                 device, epochs=1, accu_th=[20,10,5], schedular=schedular, minimal=False)
 # %%
-trainer = wt.Trainer_base_angle(model, trainloader, testloader, criterion, optimizer, device, accu_th=10, epochs=5)
 model = trainer.train_model()
 
 # Plot the training and testing loss
 plt.figure(figsize=(10, 5))
 # Make subplot with loss and accuracy
 plt.subplot(1, 2, 1)
-plt.plot(trainer.train_accuracy, label="Train Accuracy")
-plt.plot(trainer.test_accuracy, label="Test Accuracy")
-plt.xlabel("Epochs")
-plt.ylabel("Accuracy")
-plt.legend()
-plt.grid()
-# Make subplot with loss and accuracy
-plt.subplot(1, 2, 2)
 plt.plot(trainer.train_loss, label="Train Loss")
 plt.plot(trainer.test_loss, label="Test Loss")
 plt.xlabel("Epochs")
 plt.ylabel("Loss")
 plt.legend()
 plt.grid()
+if not trainer.minimal:
+    # Make subplot with loss and accuracy
+    plt.subplot(1, 2, 2)
+    plt.plot(trainer.train_accuracy, label="Train Accuracy")
+    plt.plot(trainer.test_accuracy, label="Test Accuracy")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.grid()
 plt.show()
 
 # %%
 # Save the model
-torch.save(model.state_dict(), model_name)
-print("Model saved successfully")
+# torch.save(model.to("cpu").state_dict(), model_name)
+# print("Model saved successfully")
 
 # %%
+# Test the model
+results = trainer.test_model(model.to(device), wind_dataset)
+# Sort the results by base angle
+results_sorted = results.sort_values(by="Base_Angle")
+
+# Plot the results
+plt.figure(figsize=(10, 5))
+plt.stem(results_sorted["Base_Angle"], results_sorted["Base_Angle_Error"], label="Base Angle Error")
+plt.xlabel("Base Angle")
+plt.ylabel("Error")
+plt.legend()
+plt.grid()
+plt.show()
+
+
+
+
+
+# %%
+# Old code
 model.eval()
 running_loss = 0.0
 
@@ -126,3 +163,4 @@ ax.set_axis_off()
 ax.set_title(f"Pred:{pred_base[2]:.1f}, Actual: {rot_base[2]:.1f}")
 
 plt.tight_layout()
+# %%
