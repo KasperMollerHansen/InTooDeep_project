@@ -94,9 +94,6 @@ ResNet34 = torch.hub.load('pytorch/vision:v0.20.0', 'resnet34')
 ResNet34.fc = torch.nn.Linear(in_features=512,out_features=1,bias=True)
 
 # %%
-# ResNet50_fm = torch.hub.load('pytorch/vision:v0.20.0', 'resnet50')
-# ResNet50_fm.fc = torch.nn.Linear(in_features=2048,out_features=2,bias=True)
-# ResNet50_fm.conv1 = torch.nn.Conv2d(in_channels=6,out_channels=64,kernel_size=(7,7),stride=(2,2),padding=(3,3),bias=False)
 ResNet50_full_monty = torchvision.models.resnet50(pretrained=False)
 ResNet50_full_monty.fc = nn.Linear(in_features=2048, out_features=2)
 ResNet50_full_monty.conv1 = nn.Conv2d(in_channels=6, out_channels=64,kernel_size=(7,7),stride=(2,2),padding=(3,3),bias=False)
@@ -115,7 +112,7 @@ ResNet50_full_monty_1_image.fc = nn.Linear(in_features=2048, out_features=2)
 if __name__ == "__main__":
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ResNet50_full_monty.to(device)
+    model = ResNet50_full_monty_1_image.to(device)
     # Print summary for a (3, 300, 300) input
     summary(model, input_size=(3, 300, 300), device=device.type)
 # %%
@@ -134,7 +131,4 @@ if __name__ == "__main__":
     summary(model, input_size=(3, 300, 300), device=device.type)
 
 #%% 
-
-
-#%%
 

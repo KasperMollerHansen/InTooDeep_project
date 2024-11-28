@@ -116,33 +116,6 @@ class WindTurbineDataloader(Dataset):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
 #Loss functions
-class AngularLoss(nn.Module):
-    def __init__(self):
-        super(AngularLoss, self).__init__()
-    
-    def forward(self, pred_init, target_init, is_degrees=False):
-        pred = pred_init
-        target = target_init
-        """
-        Computes the loss for angular data.
-        pred: Tensor of shape (batch_size, 2), predicted angles (in degrees or radians).
-        target: Tensor of shape (batch_size, 2), target angles (in degrees or radians).
-        is_degrees: Boolean indicating if the angles are in degrees (default: False).
-        """
-        if is_degrees:
-            pred = pred * (torch.pi / 180)
-            target = target * (torch.pi / 180)
-        
-        # Compute smallest angular difference
-        angular_diff = torch.atan2(torch.sin(pred - target), torch.cos(pred - target))
-        
-        # Scale the loss by a factor of 10
-        angular_diff = angular_diff * 10
-        
-        # Loss is the mean squared angular difference
-        loss = torch.mean((angular_diff)** 2)
-        return loss
-    
 class AngularVectorLoss(nn.Module):
     def __init__(self):
         super(AngularVectorLoss, self).__init__()
@@ -295,8 +268,7 @@ class Trainer():
                 print(df.to_string(header=False))
         return self.model
     
-    def test_model(self, model, dataset, angle_type="base_angle"):
-        batch_size = 16
+    def test_model(self, model, dataset, batch_size,angle_type="base_angle"):
         dataloader = WindTurbineDataloader.dataloader(dataset, batch_size=batch_size, shuffle=False)
         model.eval()
         

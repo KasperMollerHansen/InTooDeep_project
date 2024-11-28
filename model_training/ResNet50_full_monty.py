@@ -7,7 +7,7 @@ import numpy as np
 from torchvision import transforms
 from PIL import Image
 import matplotlib.pyplot as plt
-torch.manual_seed(42)
+torch.manual_seed(40)
 
 ### WARNING, THIS MIGHT REDUCE TRAINING ACCURACY ###
 if torch.backends.cudnn.is_available()==True:
@@ -51,14 +51,14 @@ def transform(image):
     transform = transforms.Compose([
         transforms.CenterCrop(720),
         transforms.Resize(350),
-        transforms.ToTensor(),  # Convert to tensor
+        transforms.ToTensor()  # Convert to tensor
     ])
     return transform(image)
 
 angle_type = "both"
 batch_size = 32
 images_num = 2
-base_angle_range = [0,360] # [360, 0] for all angles
+base_angle_range = [0,360] # [0, 360] for all angles
 model = nw.ResNet50_full_monty
 ############################################
 
@@ -80,7 +80,6 @@ model = model.to(device)
 criterion = wt.AngularVectorLoss()
 # Optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-#optimizer_2 = torch.optim.SGD(model.parameters(), lr=1e-5, momentum=0, dampening=0, weight_decay=0)
 
 #Scheduler
 schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=1, threshold=0.0001)
@@ -123,7 +122,7 @@ print("Model saved successfully")
 
 # %%
 # Test the model
-results = trainer.test_model(model.to(device), wind_dataset, angle_type=angle_type)
+results = trainer.test_model(model.to(device), wind_dataset, batch_size=64, angle_type=angle_type)
 # Sort the results by base angle
 results_sorted = results.sort_values(by="Base_Angle")
 
