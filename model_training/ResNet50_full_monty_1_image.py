@@ -79,14 +79,14 @@ model = model.to(device)
 
 criterion = wt.AngularVectorLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-7)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 #optimizer_2 = torch.optim.SGD(model.parameters(), lr=1e-5, momentum=0, dampening=0, weight_decay=0)
 
 #Scheduler
-schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2, threshold=0.0001)
+schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=2, threshold=0.0001)
 
 #Trainer
-epochs = 20
+epochs = 40
 accu_th = [20,10,5]
 trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
                      epochs=epochs, accu_th=accu_th, angle_type=angle_type, 
