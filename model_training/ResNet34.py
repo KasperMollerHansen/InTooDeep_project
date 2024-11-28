@@ -31,7 +31,7 @@ filename = os.path.basename(__file__)
 model_name = root_dir+"/models/"+filename.split(".")[0]+".pth"
 # Set the path to the root directory
 sys.path.append(root_dir)
-import windturbine_tester as wt
+import windturbine as wt
 import networks as nw
 
 #%%
