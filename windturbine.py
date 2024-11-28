@@ -172,7 +172,8 @@ class AngularVectorLoss(nn.Module):
             # Compute vector difference and its norm
             diff = pred_vec - target_vec
             diff = diff * 10  # Scale by a factor of 10
-            loss.append(torch.mean(torch.norm(diff, dim=-1) ** 2))  # Mean squared norm of differences
+            # loss.append(torch.mean(torch.norm(diff, dim=-1) ** 2))  # Mean squared norm of differences
+            loss.append(torch.mean(torch.sum(diff, dim=-1) ** 2))  # Sum of differences
         
         return torch.sum(torch.stack(loss))
 
