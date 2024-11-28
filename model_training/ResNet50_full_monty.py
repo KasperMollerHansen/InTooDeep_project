@@ -7,7 +7,7 @@ import numpy as np
 from torchvision import transforms
 from PIL import Image
 import matplotlib.pyplot as plt
-torch.manual_seed(40)
+torch.manual_seed(42)
 
 ### WARNING, THIS MIGHT REDUCE TRAINING ACCURACY ###
 if torch.backends.cudnn.is_available()==True:
@@ -33,7 +33,7 @@ filename = os.path.basename(__file__)
 model_name = root_dir+"/models/"+filename.split(".")[0]+".pth"
 # Set the path to the root directory
 sys.path.append(root_dir)
-import windturbine as wt
+import windturbine_tester as wt
 import networks as nw
 
 #%%
@@ -49,8 +49,8 @@ def transform(image):
 
     # Compose transformations
     transform = transforms.Compose([
-        transforms.CenterCrop(720),
-        transforms.Resize(350),
+        transforms.CenterCrop(650),
+        transforms.Resize(300),
         transforms.ToTensor()  # Convert to tensor
     ])
     return transform(image)
@@ -79,13 +79,13 @@ model = model.to(device)
 
 criterion = wt.AngularVectorLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
 
 #Scheduler
-schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=1, threshold=0.0001)
+schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.3, patience=3)
 
 #Trainer
-epochs = 20
+epochs = 10
 accu_th = [20,10,5]
 trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
                      epochs=epochs, accu_th=accu_th, angle_type=angle_type, 
@@ -122,7 +122,8 @@ print("Model saved successfully")
 
 # %%
 # Test the model
-results = trainer.test_model(model.to(device), wind_dataset, batch_size=64, angle_type=angle_type)
+results = trainer.test_model(model.to(device), wind_dataset, angle_type=angle_type, viz=True)
+# %%
 # Sort the results by base angle
 results_sorted = results.sort_values(by="Base_Angle")
 

@@ -8,6 +8,7 @@ from torch import nn
 from torchvision import transforms
 from torch.utils.data import Dataset
 from PIL import Image
+import matplotlib.pyplot as plt
 
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(root_dir)
@@ -272,7 +273,9 @@ class Trainer():
                 print(df.to_string(header=False))
         return self.model
     
-    def test_model(self, model, dataset, batch_size,angle_type="base_angle"):
+    def test_model(self, model, dataset, angle_type="base_angle",viz=False):
+        batch_size = 16
+        k = 0
         dataloader = WindTurbineDataloader.dataloader(dataset, batch_size=batch_size, shuffle=False)
         model.eval()
         
@@ -282,10 +285,13 @@ class Trainer():
         with torch.no_grad():
             for i, data in enumerate(dataloader):
                 inputs, labels = data
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                inputs_c = inputs.to(self.device)
 
                 # Compute the prediction
-                pred = model(inputs)
+                pred = model(inputs_c)
+
+                labels = labels.numpy()
+                pred = pred.detach().cpu().numpy()
 
                 if angle_type == "base_angle":
                     # Collect results in a list
@@ -306,7 +312,41 @@ class Trainer():
                             "Blade_Angle": labels[j,1].item(),
                             "Blade_Angle_Pred": pred[j,1].item()
                         })
-            
+                if viz== True:   
+                    if k%20==0:
+                        diff_base = np.abs(pred[:, 0] - labels[:, 0])
+                        diff_wings = np.abs(pred[:, 1] - labels[:, 1])
+                        diff_base = np.fmod(diff_base, 360)
+                        diff_wings = np.fmod(diff_wings,120)
+                        diff_base = np.minimum(diff_base, 360 - diff_base)
+                        diff_wings = np.minimum(diff_wings, 120 - diff_wings)
+                        diff = diff_base+diff_wings
+                        diff_sorted_idx = np.argsort(diff)
+                        worst_idx = diff_sorted_idx[-1]
+                        best_idx = diff_sorted_idx[0]
+
+                        worst_image = torch.permute(inputs[worst_idx,:,:,:],(1,2,0))
+                        best_image = torch.permute(inputs[best_idx,:,:,:],(1,2,0))
+
+                        worst_pred_base = pred[worst_idx,0] if pred[worst_idx,0]>0 else pred[worst_idx,0]+360
+                        worst_pred_wings = pred[worst_idx,1] if pred[worst_idx,1]>0 else pred[worst_idx,1]+120
+                        best_pred_base = pred[best_idx,0] if pred[best_idx,0]>0 else pred[worst_idx,0]+360
+                        best_pred_wings = pred[best_idx,1] if pred[best_idx,1]>0 else pred[best_idx,1]+120
+
+                        plt.subplot(2,1,1)
+                        plt.imshow(worst_image)
+                        plt.axis('off')
+                        plt.title("Pred:(%.1f, %.1f) , Target:(%.1f, %.1f)" % (worst_pred_base,worst_pred_wings
+                                                                            ,labels[worst_idx,0],labels[worst_idx,1]))
+                        plt.subplot(2,1,2)
+                        plt.imshow(best_image)
+                        plt.axis('off')
+                        plt.title("Pred:(%.1f, %.1f) , Target:(%.1f, %.1f)" % (best_pred_base,best_pred_wings,
+                                                                            labels[best_idx,0],labels[best_idx,1]))
+                        plt.tight_layout()
+                        plt.show()
+                    k += 1
+
             # Convert the list of results into a DataFrame
             results = pd.DataFrame(results_list)
             # If results contain a column named 'Base_angle', do the following

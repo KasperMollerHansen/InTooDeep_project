@@ -33,23 +33,16 @@ filename = os.path.basename(__file__)
 model_name = root_dir+"/models/"+filename.split(".")[0]+".pth"
 # Set the path to the root directory
 sys.path.append(root_dir)
-import windturbine as wt
+import windturbine_tester as wt
 import networks as nw
 
 #%%
 # Variables
 ############################################
 def transform(image):
-    # Convert image to array
-    #image = np.array(image)
-    #image = image[125:625,390:890]
-
-    # Convert back to PIL Image for further transforms
-    #image = Image.fromarray(image)
-
     # Compose transformations
     transform = transforms.Compose([
-        transforms.CenterCrop(720),
+        transforms.CenterCrop(650),
         transforms.Resize(350),
         transforms.ToTensor(),  # Convert to tensor
     ])
@@ -62,8 +55,13 @@ base_angle_range = [300,60] # [0, 360] for all angles
 model = nw.ResNet50_full_monty_1_image
 ############################################
 
-wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 
-                                     root_dir=root_dir+'/data/', images_num=images_num, transform=transform, angle_type=angle_type, base_angle_range=base_angle_range)
+wind_dataset = wt.WindTurbineDataset(csv_file = 'rotations_w_images.csv', 
+                                     image_folder = 'camera', 
+                                     root_dir = root_dir+'/data/', 
+                                     images_num = images_num, 
+                                     transform = transform, 
+                                     angle_type = angle_type, 
+                                     base_angle_range = base_angle_range)
 print(f"Dataset size: {len(wind_dataset)}")
 
 train_dataset, test_dataset = wt.WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
@@ -79,11 +77,11 @@ model = model.to(device)
 
 criterion = wt.AngularVectorLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-#optimizer_2 = torch.optim.SGD(model.parameters(), lr=1e-5, momentum=0, dampening=0, weight_decay=0)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 #Scheduler
-schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=2, threshold=0.0001)
+schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, 
+                                                       patience=2, threshold=0.0001)
 
 #Trainer
 epochs = 40
@@ -123,7 +121,8 @@ print("Model saved successfully")
 
 # %%
 # Test the model
-results = trainer.test_model(model.to(device), wind_dataset, angle_type=angle_type)
+results = trainer.test_model(model.to(device), wind_dataset, angle_type=angle_type, viz=True)
+# %%
 # Sort the results by base angle
 results_sorted = results.sort_values(by="Base_Angle")
 
