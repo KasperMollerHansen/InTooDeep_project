@@ -279,7 +279,7 @@ class Trainer():
             test_loss, test_acc = self._test(self.testloader, self.model, self.criterion, self.device)
             self.test_loss.append(test_loss)
             print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {np.round(train_loss,3)}, Test Loss: {np.round(test_loss,3)}")
-            print(f"lr {self.schedular.get_last_lr}")
+            print(f"lr {self.schedular.get_last_lr()}")
             
             if not self.minimal:
                 try:
