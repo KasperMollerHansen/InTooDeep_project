@@ -195,7 +195,7 @@ class Trainer():
         self.schedular = schedular
         self.minimal = minimal
     
-    def _accuracy_angle(self, pred, target, threshold, angle_type, is_degrees=True):
+    def _accuracy_angle(self, pred, target, threshold, is_degrees=True):
         pred = pred.detach().cpu().numpy()
         target = target.detach().cpu().numpy()
         accu_list = []
@@ -232,7 +232,7 @@ class Trainer():
             running_loss += loss.item()
             # Accuracy
             if not self.minimal:
-                accuracy = self._accuracy_angle(pred, labels, self.accu_th, angle_type=self.angle_type, is_degrees=True)
+                accuracy = self._accuracy_angle(pred, labels, self.accu_th, is_degrees=True)
                 running_accuracy += accuracy
 
             # Backpropagation
@@ -264,7 +264,7 @@ class Trainer():
                 running_loss += loss.item()
                 # Accuracy
                 if not self.minimal:
-                    accuracy = self._accuracy_angle(pred, labels, self.accu_th, angle_type=self.angle_type, is_degrees=True)
+                    accuracy = self._accuracy_angle(pred, labels, self.accu_th, is_degrees=True)
                     running_accuracy += accuracy
 
         avg_loss = running_loss / len(dataloader)
@@ -278,6 +278,7 @@ class Trainer():
             test_loss, test_acc = self._test(self.testloader, self.model, self.criterion, self.device)
             self.test_loss.append(test_loss)
             print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {np.round(train_loss,3)}, Test Loss: {np.round(test_loss,3)}")
+            print(f"lr {self.schedular.get_last_lr}")
             
             if not self.minimal:
                 try:
