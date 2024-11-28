@@ -58,8 +58,8 @@ def transform(image):
 angle_type = "both"
 batch_size = 32
 images_num = 2
-base_angle_range = [360,0] # [360, 0] for all angles
-model = nw.ResNet50_fm
+base_angle_range = [0,360] # [360, 0] for all angles
+model = nw.ResNet50_fm_tv
 ############################################
 
 wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 
