@@ -40,9 +40,9 @@ class WindTurbineDataset(Dataset):
         images_num (int, optional): Number of images per sample. Default is 1.
         grayscale (bool, optional): Whether to convert images to grayscale. Default is False.
         angle_type (string, optional): Type of angle to predict. Default is "both". Options: "base_angle", "blade_angle", "both"
-        base_angle_range (list, optional): Range of base angles to include. Default is [360, 0]. [min, max]
+        base_angle_range (list, optional): Range of base angles to include. Default is [0, 360]. [min, max]
     """
-    def __init__(self, csv_file, image_folder, root_dir, transform=None, images_num=1, angle_type="both", base_angle_range=[360, 0]):
+    def __init__(self, csv_file, image_folder, root_dir, transform=None, images_num=1, angle_type="both", base_angle_range=[0, 360]):
         self.root_dir = root_dir
         csv_path = os.path.join(self.root_dir, csv_file)
         self.rotations_df = pd.read_csv(csv_path)
@@ -53,16 +53,16 @@ class WindTurbineDataset(Dataset):
             os.path.join(image_folder + f"_0{i + 1}/") for i in range(images_num)
         ]
         # Filter out base angles outside the range
-        if base_angle_range[0] > base_angle_range[1]:
+        if base_angle_range[1] > base_angle_range[0]:
             self.rotations_df = self.rotations_df[
                 self.rotations_df.iloc[:, 0].apply(
-                    lambda x: (x <= base_angle_range[0] and x >= base_angle_range[1])
+                    lambda x: (x <= base_angle_range[1] and x >= base_angle_range[0])
                 )
             ]
         else:
             self.rotations_df = self.rotations_df[
                 self.rotations_df.iloc[:, 0].apply(
-                    lambda x: (x <= base_angle_range[0] or x >= base_angle_range[1])
+                    lambda x: (x <= base_angle_range[1] or x >= base_angle_range[0])
                 )
             ]
 
@@ -90,8 +90,6 @@ class WindTurbineDataset(Dataset):
         
         if self.angle_type == "base_angle":
             angles = torch.tensor([base_angle], dtype=torch.float32)
-        elif self.angle_type == "blade_angle":
-            angles = torch.tensor([blade_angle], dtype=torch.float32)
         else:
             angles = torch.tensor([base_angle, blade_angle], dtype=torch.float32)
 
@@ -114,7 +112,7 @@ class WindTurbineDataloader(Dataset):
         # Seperate the labels from the features
         return train_dataset, test_dataset
     @staticmethod
-    def dataloader(dataset, batch_size=4, shuffle=True):
+    def dataloader(dataset, batch_size=4, shuffle=True,):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
 #Loss functions
@@ -167,8 +165,9 @@ class AngularVectorLoss(nn.Module):
         loss = []
         for i in range(pred.shape[1]):
             # Represent angles as 2D vectors
-            pred_vec = torch.stack((torch.sin(pred[:,i]), torch.cos(pred[:,i])), dim=-1)
-            target_vec = torch.stack((torch.sin(target[:,i]), torch.cos(target[:,i])), dim=-1)
+            scale = 1+(i*2)
+            pred_vec = torch.stack((torch.sin(pred[:,i]*scale), torch.cos(pred[:,i]*scale)), dim=-1)
+            target_vec = torch.stack((torch.sin(target[:,i]*scale), torch.cos(target[:,i]*scale)), dim=-1)
 
             # Compute vector difference and its norm
             diff = pred_vec - target_vec
@@ -176,7 +175,7 @@ class AngularVectorLoss(nn.Module):
             # loss.append(torch.mean(torch.norm(diff, dim=-1) ** 2))  # Mean squared norm of differences
             loss.append(torch.mean(torch.sum(diff, dim=-1) ** 2))  # Sum of differences
         
-        return torch.mean(torch.stack(loss))
+        return torch.sum(torch.stack(loss))
 
 # Trainers
 class Trainer():
@@ -197,25 +196,18 @@ class Trainer():
         self.schedular = schedular
         self.minimal = minimal
     
-    def _accuracy_angle(self, pred, target, threshold, angle_type, is_degrees=True):
+    def _accuracy_angle(self, pred, target, threshold, is_degrees=True):
         pred = pred.detach().cpu().numpy()
         target = target.detach().cpu().numpy()
-        if angle_type == "base_angle":
-            scale = 1
-        elif angle_type == "blade_angle":
-            scale = 3
-        else:
-            scale = 1
-        
         accu_list = []
         for i in range(pred.shape[1]):
             diff = np.abs(pred[:, i] - target[:, i])
             if is_degrees:
-                val = 360/(scale+i*2)
+                val = 360/(1+i*2)
                 diff = np.fmod(diff, val)
                 diff = np.minimum(diff, val - diff)
             else:
-                val = 2*np.pi/(scale+i*2)
+                val = 2*np.pi/(1+i*2)
                 diff = np.fmod(diff, val)
                 diff = np.minimum(diff, val - diff)
 
@@ -241,7 +233,7 @@ class Trainer():
             running_loss += loss.item()
             # Accuracy
             if not self.minimal:
-                accuracy = self._accuracy_angle(pred, labels, self.accu_th, angle_type=self.angle_type, is_degrees=True)
+                accuracy = self._accuracy_angle(pred, labels, self.accu_th, is_degrees=True)
                 running_accuracy += accuracy
 
             # Backpropagation
@@ -250,7 +242,7 @@ class Trainer():
             optimizer.zero_grad()
 
         if self.schedular:
-            self.schedular.step()
+            self.schedular.step(loss)
 
         avg_loss = running_loss / len(dataloader)
         avg_accuracy = running_accuracy / len(dataloader)
@@ -273,7 +265,7 @@ class Trainer():
                 running_loss += loss.item()
                 # Accuracy
                 if not self.minimal:
-                    accuracy = self._accuracy_angle(pred, labels, self.accu_th, angle_type=self.angle_type, is_degrees=True)
+                    accuracy = self._accuracy_angle(pred, labels, self.accu_th, is_degrees=True)
                     running_accuracy += accuracy
 
         avg_loss = running_loss / len(dataloader)
@@ -287,6 +279,7 @@ class Trainer():
             test_loss, test_acc = self._test(self.testloader, self.model, self.criterion, self.device)
             self.test_loss.append(test_loss)
             print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {np.round(train_loss,3)}, Test Loss: {np.round(test_loss,3)}")
+            print(f"lr {self.schedular.get_last_lr}")
             
             if not self.minimal:
                 try:
@@ -327,51 +320,6 @@ class Trainer():
                             "Base_Angle_Pred": pred[j].item()
 
                         })
-
-                    # Convert the list of results into a DataFrame
-                    results = pd.DataFrame(results_list)
-                    # Normalize 'Base_Angle_Pred' to the range [0, 360)
-                    results["Base_Angle_Pred_Pos"] = np.mod(results["Base_Angle_Pred"], 360)
-
-                    # Calculate the 'Base_Angle_Error' as the difference between the predicted and actual angles
-                    results["Base_Angle_Error"] = results["Base_Angle_Pred_Pos"] - results["Base_Angle"]
-
-                    # Apply the wrapping logic in a vectorized manner using numpy's where
-                    results["Base_Angle_Error"] = np.where(
-                        results["Base_Angle_Error"] > 180, 
-                        results["Base_Angle_Error"] - 360, 
-                        np.where(results["Base_Angle_Error"] < -180, 
-                                results["Base_Angle_Error"] + 360, 
-                                results["Base_Angle_Error"])
-                    )
-                    return results
-
-                elif angle_type == "blade_angle":
-                    # Collect results in a list
-                    for j in range(len(labels)):
-                        results_list.append({
-                            "Image": f"image_01_{i*batch_size+j +1}",
-                            "Blade_Angle": labels[j].item(),
-                            "Blade_Angle_Pred": pred[j].item()
-                        })
-                    
-                    # Convert the list of results into a DataFrame
-                    results = pd.DataFrame(results_list)
-                    # Normalize 'Blade_Angle_Pred' to the range [0, 120)
-                    results["Blade_Angle_Pred_Pos"] = np.mod(results["Blade_Angle_Pred"], 120)
-
-                    # Calculate the 'Blade_Angle_Error' as the difference between the predicted and actual angles
-                    results["Blade_Angle_Error"] = results["Blade_Angle_Pred_Pos"] - results["Blade_Angle"]
-
-                    # Apply the wrapping logic in a vectorized manner using numpy's where
-                    results["Blade_Angle_Error"] = np.where(
-                        results["Blade_Angle_Error"] > 60, 
-                        results["Blade_Angle_Error"] - 120, 
-                        np.where(results["Blade_Angle_Error"] < -60, 
-                                results["Blade_Angle_Error"] + 120, 
-                                results["Blade_Angle_Error"])
-                    )
-                    return results
                 else:
                     # Collect results in a list
                     for j in range(len(labels)):
@@ -382,40 +330,40 @@ class Trainer():
                             "Blade_Angle": labels[j,1].item(),
                             "Blade_Angle_Pred": pred[j,1].item()
                         })
-                    
-                    # Convert the list of results into a DataFrame
-                    results = pd.DataFrame(results_list)
-                    # Normalize 'Base_Angle_Pred' to the range [0, 360)
-                    results["Base_Angle_Pred_Pos"] = np.mod(results["Base_Angle_Pred"], 360)
+            
+            # Convert the list of results into a DataFrame
+            results = pd.DataFrame(results_list)
+            # If results contain a column named 'Base_angle', do the following
+            if "Base_Angle" in results.columns:
+                # Normalize 'Base_Angle_Pred' to the range [0, 360)
+                results["Base_Angle_Pred_Pos"] = np.mod(results["Base_Angle_Pred"], 360)
 
-                    # Calculate the 'Base_Angle_Error' as the difference between the predicted and actual angles
-                    results["Base_Angle_Error"] = results["Base_Angle_Pred_Pos"] - results["Base_Angle"]
+                # Calculate the 'Base_Angle_Error' as the difference between the predicted and actual angles
+                results["Base_Angle_Error"] = results["Base_Angle_Pred_Pos"] - results["Base_Angle"]
 
-                    # Apply the wrapping logic in a vectorized manner using numpy's where
-                    results["Base_Angle_Error"] = np.where(
-                        results["Base_Angle_Error"] > 180, 
-                        results["Base_Angle_Error"] - 360, 
-                        np.where(results["Base_Angle_Error"] < -180, 
-                                results["Base_Angle_Error"] + 360, 
-                                results["Base_Angle_Error"])
-                    )
+                # Apply the wrapping logic in a vectorized manner using numpy's where
+                results["Base_Angle_Error"] = np.where(
+                    results["Base_Angle_Error"] > 180, 
+                    results["Base_Angle_Error"] - 360, 
+                    np.where(results["Base_Angle_Error"] < -180, 
+                            results["Base_Angle_Error"] + 360, 
+                            results["Base_Angle_Error"])
+                )
+            # If results contain a column named 'Blade_angle', do the following
+            if "Blade_Angle" in results.columns:
+                # Normalize 'Blade_Angle_Pred' to the range [0, 120)
+                results["Blade_Angle_Pred_Pos"] = np.mod(results["Blade_Angle_Pred"], 120)
 
-                    # Normalize 'Blade_Angle_Pred' to the range [0, 120)
-                    results["Blade_Angle_Pred_Pos"] = np.mod(results["Blade_Angle_Pred"], 120)
-                    
-                    # Calculate the 'Blade_Angle_Error' as the difference between the predicted and actual angles
-                    results["Blade_Angle_Error"] = results["Blade_Angle_Pred_Pos"] - results["Blade_Angle"]
+                # Calculate the 'Blade_Angle_Error' as the difference between the predicted and actual angles
+                results["Blade_Angle_Error"] = results["Blade_Angle_Pred_Pos"] - results["Blade_Angle"]
 
-                    # Apply the wrapping logic in a vectorized manner using numpy's where
-                    results["Blade_Angle_Error"] = np.where(
-                        results["Blade_Angle_Error"] > 60, 
-                        results["Blade_Angle_Error"] - 120, 
-                        np.where(results["Blade_Angle_Error"] < -60, 
-                                results["Blade_Angle_Error"] + 120, 
-                                results["Blade_Angle_Error"])
-                    )
-                    return results
-
-# %%
-# Test all data
-
+                # Apply the wrapping logic in a vectorized manner using numpy's where
+                results["Blade_Angle_Error"] = np.where(
+                    results["Blade_Angle_Error"] > 60, 
+                    results["Blade_Angle_Error"] - 120, 
+                    np.where(results["Blade_Angle_Error"] < -60, 
+                            results["Blade_Angle_Error"] + 120, 
+                            results["Blade_Angle_Error"])
+                )
+            
+            return results

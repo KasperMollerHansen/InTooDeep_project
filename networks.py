@@ -92,66 +92,35 @@ if __name__ == "__main__":
 # %%
 ResNet34 = torch.hub.load('pytorch/vision:v0.20.0', 'resnet34')
 ResNet34.fc = torch.nn.Linear(in_features=512,out_features=1,bias=True)
-if __name__ == "__main__":
-    # Set device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ResNet34.to(device)
-    # Print summary for a (3, 300, 300) input
-    summary(model, input_size=(3, 300, 300), device=device.type)
 
-#%%
-ResNetPre = torchvision.models.resnet101(pretrained=True)
+# %%
+ResNet50_fm = torch.hub.load('pytorch/vision:v0.20.0', 'resnet50')
+ResNet50_fm.fc = torch.nn.Linear(in_features=2048,out_features=2,bias=True)
+ResNet50_fm.conv1 = torch.nn.Conv2d(in_channels=6,out_channels=64,kernel_size=(7,7),stride=(2,2),padding=(3,3),bias=False)
 
-for param in ResNetPre.parameters():
+# %%
+ResNet50_fm = torch.hub.load('pytorch/vision:v0.20.0', 'resnet50')
+ResNet50_fm.fc = torch.nn.Linear(in_features=2048,out_features=2,bias=True)
+# %%
+
+#%% 
+
+ResNet101_Pretrained = torchvision.models.resnet101(pretrained=True)
+for param in ResNet101_Pretrained.parameters():
     param.requires_grad = False
-
-ResNetPre.fc = nn.Linear(in_features=2048, out_features=1)
-
+ResNet101_Pretrained.fc = nn.Linear(in_features=2048, out_features=1)
 if __name__ == "__main__":
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ResNetPre.to(device)
+    model = ResNet101_Pretrained.to(device)
     # Print summary for a (3, 300, 300) input
     summary(model, input_size=(3, 300, 300), device=device.type)
 
+#%% 
+
+ResNet50_fm_tv = torchvision.models.resnet50(pretrained=False)
+ResNet50_fm_tv.fc = nn.Linear(in_features=2048, out_features=2)
+ResNet50_fm_tv.conv1 = nn.Conv2d(in_channels=6, out_channels=64,kernel_size=(7,7),stride=(2,2),padding=(3,3),bias=False)
+
 #%%
 
-class CNN_Reg(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.convolution_stack = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-
-        self.linear_stack = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(128*37*37, 128),  # Adjust dimensions for 300x300 input
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64, 2)
-        )
-
-    def forward(self, x):
-        x = self.convolution_stack(x)
-        x = self.linear_stack(x)
-        return x
-    
-    
-if __name__ == "__main__":
-    # Set device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = CNN_Reg().to(device)
-    # Print summary for a (3, 300, 300) input
-    summary(model, input_size=(3, 300, 300), device=device.type)
-     
-#%%
