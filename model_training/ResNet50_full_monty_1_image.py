@@ -59,7 +59,7 @@ angle_type = "both"
 batch_size = 32
 images_num = 1
 base_angle_range = [300,60] # [0, 360] for all angles
-model = nw.ResNet50_fm
+model = nw.ResNet50_full_monty_1_image
 ############################################
 
 wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 

@@ -58,8 +58,8 @@ def transform(image):
 angle_type = "both"
 batch_size = 32
 images_num = 2
-base_angle_range = [360,0] # [360, 0] for all angles
-model = nw.ResNet50_fm
+base_angle_range = [0,360] # [360, 0] for all angles
+model = nw.ResNet50_full_monty
 ############################################
 
 wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 
@@ -79,14 +79,14 @@ model = model.to(device)
 
 criterion = wt.AngularVectorLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-7)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 #optimizer_2 = torch.optim.SGD(model.parameters(), lr=1e-5, momentum=0, dampening=0, weight_decay=0)
 
 #Scheduler
-schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1, threshold=0.0001)
+schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.3, patience=1, threshold=0.0001)
 
 #Trainer
-epochs = 1
+epochs = 20
 accu_th = [20,10,5]
 trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
                      epochs=epochs, accu_th=accu_th, angle_type=angle_type, 
