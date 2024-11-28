@@ -40,9 +40,9 @@ class WindTurbineDataset(Dataset):
         images_num (int, optional): Number of images per sample. Default is 1.
         grayscale (bool, optional): Whether to convert images to grayscale. Default is False.
         angle_type (string, optional): Type of angle to predict. Default is "both". Options: "base_angle", "blade_angle", "both"
-        base_angle_range (list, optional): Range of base angles to include. Default is [360, 0]. [min, max]
+        base_angle_range (list, optional): Range of base angles to include. Default is [0, 360]. [min, max]
     """
-    def __init__(self, csv_file, image_folder, root_dir, transform=None, images_num=1, angle_type="both", base_angle_range=[360, 0]):
+    def __init__(self, csv_file, image_folder, root_dir, transform=None, images_num=1, angle_type="both", base_angle_range=[0, 360]):
         self.root_dir = root_dir
         csv_path = os.path.join(self.root_dir, csv_file)
         self.rotations_df = pd.read_csv(csv_path)
@@ -53,16 +53,16 @@ class WindTurbineDataset(Dataset):
             os.path.join(image_folder + f"_0{i + 1}/") for i in range(images_num)
         ]
         # Filter out base angles outside the range
-        if base_angle_range[0] > base_angle_range[1]:
+        if base_angle_range[1] > base_angle_range[0]:
             self.rotations_df = self.rotations_df[
                 self.rotations_df.iloc[:, 0].apply(
-                    lambda x: (x <= base_angle_range[0] and x >= base_angle_range[1])
+                    lambda x: (x <= base_angle_range[1] and x >= base_angle_range[0])
                 )
             ]
         else:
             self.rotations_df = self.rotations_df[
                 self.rotations_df.iloc[:, 0].apply(
-                    lambda x: (x <= base_angle_range[0] or x >= base_angle_range[1])
+                    lambda x: (x <= base_angle_range[1] or x >= base_angle_range[0])
                 )
             ]
 
@@ -90,8 +90,6 @@ class WindTurbineDataset(Dataset):
         
         if self.angle_type == "base_angle":
             angles = torch.tensor([base_angle], dtype=torch.float32)
-        elif self.angle_type == "blade_angle":
-            angles = torch.tensor([blade_angle], dtype=torch.float32)
         else:
             angles = torch.tensor([base_angle, blade_angle], dtype=torch.float32)
 
@@ -114,7 +112,7 @@ class WindTurbineDataloader(Dataset):
         # Seperate the labels from the features
         return train_dataset, test_dataset
     @staticmethod
-    def dataloader(dataset, batch_size=4, shuffle=True):
+    def dataloader(dataset, batch_size=4, shuffle=True,):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
 #Loss functions
@@ -167,15 +165,16 @@ class AngularVectorLoss(nn.Module):
         loss = []
         for i in range(pred.shape[1]):
             # Represent angles as 2D vectors
-            pred_vec = torch.stack((torch.sin(pred[:,i]), torch.cos(pred[:,i])), dim=-1)
-            target_vec = torch.stack((torch.sin(target[:,i]), torch.cos(target[:,i])), dim=-1)
+            scale = 1+(i*2)
+            pred_vec = torch.stack((torch.sin(pred[:,i]*scale), torch.cos(pred[:,i]*scale)), dim=-1)
+            target_vec = torch.stack((torch.sin(target[:,i]*scale), torch.cos(target[:,i]*scale)), dim=-1)
 
             # Compute vector difference and its norm
             diff = pred_vec - target_vec
             diff = diff * 10  # Scale by a factor of 10
             loss.append(torch.mean(torch.norm(diff, dim=-1) ** 2))  # Mean squared norm of differences
         
-        return torch.mean(torch.stack(loss))
+        return torch.sum(torch.stack(loss))
 
 # Trainers
 class Trainer():
@@ -199,22 +198,15 @@ class Trainer():
     def _accuracy_angle(self, pred, target, threshold, angle_type, is_degrees=True):
         pred = pred.detach().cpu().numpy()
         target = target.detach().cpu().numpy()
-        if angle_type == "base_angle":
-            scale = 1
-        elif angle_type == "blade_angle":
-            scale = 3
-        else:
-            scale = 1
-        
         accu_list = []
         for i in range(pred.shape[1]):
             diff = np.abs(pred[:, i] - target[:, i])
             if is_degrees:
-                val = 360/(scale+i*2)
+                val = 360/(1+i*2)
                 diff = np.fmod(diff, val)
                 diff = np.minimum(diff, val - diff)
             else:
-                val = 2*np.pi/(scale+i*2)
+                val = 2*np.pi/(1+i*2)
                 diff = np.fmod(diff, val)
                 diff = np.minimum(diff, val - diff)
 
@@ -249,7 +241,7 @@ class Trainer():
             optimizer.zero_grad()
 
         if self.schedular:
-            self.schedular.step()
+            self.schedular.step(loss)
 
         avg_loss = running_loss / len(dataloader)
         avg_accuracy = running_accuracy / len(dataloader)
@@ -325,15 +317,6 @@ class Trainer():
                             "Base_Angle": labels[j].item(),
                             "Base_Angle_Pred": pred[j].item()
 
-                        })
-
-                elif angle_type == "blade_angle":
-                    # Collect results in a list
-                    for j in range(len(labels)):
-                        results_list.append({
-                            "Image": f"image_01_{i*batch_size+j+1}",
-                            "Blade_Angle": labels[j].item(),
-                            "Blade_Angle_Pred": pred[j].item()
                         })
                 else:
                     # Collect results in a list

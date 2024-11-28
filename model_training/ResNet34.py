@@ -9,6 +9,13 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 device = ("cuda" if torch.cuda.is_available() else "cpu")
+### WARNING, THIS MIGHT REDUCE TRAINING ACCURACY ###
+if torch.backends.cudnn.is_available()==True:
+    print('CUDNN is available! ')
+    torch.backends.cudnn.enabled = True
+    torch.backends.cudnn.benchmark = True
+####################################################
+
 try:
     import torch_directml
     device = torch_directml.device()
@@ -24,7 +31,7 @@ filename = os.path.basename(__file__)
 model_name = root_dir+"/models/"+filename.split(".")[0]+".pth"
 # Set the path to the root directory
 sys.path.append(root_dir)
-import windturbine as wt
+import windturbine_tester as wt
 import networks as nw
 
 #%%
@@ -45,9 +52,9 @@ def transform(image):
     return transform(image)
 
 angle_type = "base_angle"
-batch_size = 16
+batch_size = 64
 images_num = 1
-base_angle_range = [10,360-10]
+base_angle_range = [360,0]
 model = nw.ResNet34
 ############################################
 
@@ -68,11 +75,17 @@ model = model.to(device)
 
 criterion = wt.AngularVectorLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-schedular = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-6)
 
-trainer = wt.TrainerBaseAngle(model, trainloader, testloader, criterion, optimizer,
-                                 device, epochs=1, accu_th=[20,10,5], schedular=schedular, minimal=False)
+#Scheduler
+schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=1, threshold=0.0001)
+
+#Trainer
+epochs = 10
+accu_th = [20,10,5]
+trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
+                     epochs=epochs, accu_th=accu_th, angle_type=angle_type, 
+                     schedular=schedular, minimal=False)
 # %%
 model = trainer.train_model()
 
@@ -118,49 +131,26 @@ plt.grid()
 plt.show()
 
 
-
-
-
 # %%
-# Old code
-model.eval()
-running_loss = 0.0
+# Test the model
+results = trainer.test_model(model.to(device), wind_dataset, angle_type=angle_type)
+# Sort the results by base angle
+results_sorted = results.sort_values(by="Base_Angle")
 
-with torch.no_grad():
-    for _, data in enumerate(testloader):
-        inputs, labels = data
-        inputs_n, labels_n = inputs.to(device), labels.to(device)
-
-        # Compute the prediction error
-        pred = model(inputs_n)
-        loss = criterion(pred,labels_n,is_degrees=True)
-        running_loss += loss.item()
-avg_loss = running_loss / len(testloader)
-# %%
-im1 = inputs
-im1 = torch.permute(im1,(0,2,3,1)).numpy()
-preds = torch.Tensor.cpu(pred).numpy()
-rot_base = labels[:,0]
-#rot_wings = labels[:,1]
-pred_base = preds[:,0]
-#pred_wings = preds[:,1]
-print(pred_base)
-
-ax = plt.subplot(3,1,1)
-ax.imshow(im1[0,:,:,:])
-ax.set_axis_off()
-ax.set_title(f"Pred: {pred_base[0]:.1f}, Actual: {rot_base[0]:.1f}")
-
-ax = plt.subplot(3,1,2)
-ax.imshow(im1[1,:,:,:])
-ax.set_axis_off()
-ax.set_title(f"Pred: {pred_base[1]:.1f}, Actual: {rot_base[1]:.1f}")
-
-
-ax = plt.subplot(3,1,3)
-ax.imshow(im1[2,:,:,:])
-ax.set_axis_off()
-ax.set_title(f"Pred:{pred_base[2]:.1f}, Actual: {rot_base[2]:.1f}")
-
-plt.tight_layout()
-# %%
+# Plot the results
+if angle_type == "both" or angle_type == "base_angle":
+    plt.figure(figsize=(10, 3))
+    plt.stem(results_sorted["Base_Angle"], results_sorted["Base_Angle_Error"], label="Base Angle Error")
+    plt.xlabel("Base Angle")
+    plt.ylabel("Error")
+    plt.legend()
+    plt.grid()
+    plt.show()
+if angle_type == "both" or angle_type == "blade_angle":
+    plt.figure(figsize=(10, 3))
+    plt.stem(results_sorted["Base_Angle"], results_sorted["Blade_Angle_Error"], label="Blade Angle Error")
+    plt.xlabel("Blade Angle")
+    plt.ylabel("Error")
+    plt.legend()
+    plt.grid()
+    plt.show()
