@@ -2,6 +2,7 @@
 from torch import nn
 from torchsummary import summary
 import torch
+import torchvision
 #%%
 class CNN_Regressor_4_conv(nn.Module):
     def __init__(self):
@@ -97,7 +98,22 @@ if __name__ == "__main__":
     model = ResNet34.to(device)
     # Print summary for a (3, 300, 300) input
     summary(model, input_size=(3, 300, 300), device=device.type)
-    
+
+#%%
+ResNetPre = torchvision.models.resnet101(pretrained=True)
+
+for param in ResNetPre.parameters():
+    param.requires_grad = False
+
+ResNetPre.fc = nn.Linear(in_features=2048, out_features=1)
+
+if __name__ == "__main__":
+    # Set device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = ResNetPre.to(device)
+    # Print summary for a (3, 300, 300) input
+    summary(model, input_size=(3, 300, 300), device=device.type)
+
 #%%
 
 class CNN_Reg(nn.Module):
