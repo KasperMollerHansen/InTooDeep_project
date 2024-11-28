@@ -31,7 +31,7 @@ filename = os.path.basename(__file__)
 model_name = root_dir+"/models/"+filename.split(".")[0]+".pth"
 # Set the path to the root directory
 sys.path.append(root_dir)
-import windturbine_tester as wt
+import windturbine as wt
 import networks as nw
 
 #%%
@@ -52,10 +52,11 @@ def transform(image):
     return transform(image)
 
 angle_type = "base_angle"
-batch_size = 64
+batch_size = 4 
 images_num = 1
-base_angle_range = [360,0]
+base_angle_range = [0,360]
 model = nw.ResNet34
+lr = 1e-3
 ############################################
 
 wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 
@@ -75,7 +76,7 @@ model = model.to(device)
 
 criterion = wt.AngularVectorLoss()
 # Optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-6)
+optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 #Scheduler
 schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=1, threshold=0.0001)
