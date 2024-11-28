@@ -278,7 +278,7 @@ class Trainer():
             test_loss, test_acc = self._test(self.testloader, self.model, self.criterion, self.device)
             self.test_loss.append(test_loss)
             print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {np.round(train_loss,3)}, Test Loss: {np.round(test_loss,3)}")
-            print(f"lr {self.schedular.get_last_lr}")
+            print(f"lr {self.schedular.get_last_lr()}")
             
             if not self.minimal:
                 try:
@@ -295,7 +295,7 @@ class Trainer():
         return self.model
     
     def test_model(self, model, dataset, angle_type="base_angle"):
-        batch_size = 50
+        batch_size = 16
         dataloader = WindTurbineDataloader.dataloader(dataset, batch_size=batch_size, shuffle=False)
         model.eval()
         
