@@ -105,7 +105,7 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = ResNet50_full_monty.to(device)
     # Print summary for a (3, 300, 300) input
-    summary(model, input_size=(3, 300, 300), device=device.type)
+    summary(model, input_size=(6, 300, 300), device=device.type)
 
 # %%
 # ResNet50_full_monty_1_image = torch.hub.load('pytorch/vision:v0.20.0', 'resnet50')
