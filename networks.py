@@ -91,6 +91,7 @@ if __name__ == "__main__":
 # %%
 ResNet34 = torch.hub.load('pytorch/vision:v0.20.0', 'resnet34')
 ResNet34.fc = torch.nn.Linear(in_features=512,out_features=1,bias=True)
+ResNet34.conv1 = torch.nn.Conv2d(in_channels=3,out_channels=64,kernel_size=(7,7),stride=(2,2),padding=(3,3),bias=False)
 if __name__ == "__main__":
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

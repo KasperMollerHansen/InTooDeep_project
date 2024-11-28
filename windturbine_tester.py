@@ -328,50 +328,14 @@ class Trainer():
 
                         })
 
-                    # Convert the list of results into a DataFrame
-                    results = pd.DataFrame(results_list)
-                    # Normalize 'Base_Angle_Pred' to the range [0, 360)
-                    results["Base_Angle_Pred_Pos"] = np.mod(results["Base_Angle_Pred"], 360)
-
-                    # Calculate the 'Base_Angle_Error' as the difference between the predicted and actual angles
-                    results["Base_Angle_Error"] = results["Base_Angle_Pred_Pos"] - results["Base_Angle"]
-
-                    # Apply the wrapping logic in a vectorized manner using numpy's where
-                    results["Base_Angle_Error"] = np.where(
-                        results["Base_Angle_Error"] > 180, 
-                        results["Base_Angle_Error"] - 360, 
-                        np.where(results["Base_Angle_Error"] < -180, 
-                                results["Base_Angle_Error"] + 360, 
-                                results["Base_Angle_Error"])
-                    )
-                    return results
-
                 elif angle_type == "blade_angle":
                     # Collect results in a list
                     for j in range(len(labels)):
                         results_list.append({
-                            "Image": f"image_01_{i*batch_size+j +1}",
+                            "Image": f"image_01_{i*batch_size+j+1}",
                             "Blade_Angle": labels[j].item(),
                             "Blade_Angle_Pred": pred[j].item()
                         })
-                    
-                    # Convert the list of results into a DataFrame
-                    results = pd.DataFrame(results_list)
-                    # Normalize 'Blade_Angle_Pred' to the range [0, 120)
-                    results["Blade_Angle_Pred_Pos"] = np.mod(results["Blade_Angle_Pred"], 120)
-
-                    # Calculate the 'Blade_Angle_Error' as the difference between the predicted and actual angles
-                    results["Blade_Angle_Error"] = results["Blade_Angle_Pred_Pos"] - results["Blade_Angle"]
-
-                    # Apply the wrapping logic in a vectorized manner using numpy's where
-                    results["Blade_Angle_Error"] = np.where(
-                        results["Blade_Angle_Error"] > 60, 
-                        results["Blade_Angle_Error"] - 120, 
-                        np.where(results["Blade_Angle_Error"] < -60, 
-                                results["Blade_Angle_Error"] + 120, 
-                                results["Blade_Angle_Error"])
-                    )
-                    return results
                 else:
                     # Collect results in a list
                     for j in range(len(labels)):
@@ -382,39 +346,43 @@ class Trainer():
                             "Blade_Angle": labels[j,1].item(),
                             "Blade_Angle_Pred": pred[j,1].item()
                         })
-                    
-                    # Convert the list of results into a DataFrame
-                    results = pd.DataFrame(results_list)
-                    # Normalize 'Base_Angle_Pred' to the range [0, 360)
-                    results["Base_Angle_Pred_Pos"] = np.mod(results["Base_Angle_Pred"], 360)
+            
+            # Convert the list of results into a DataFrame
+            results = pd.DataFrame(results_list)
+            # If results contain a column named 'Base_angle', do the following
+            if "Base_Angle" in results.columns:
+                # Normalize 'Base_Angle_Pred' to the range [0, 360)
+                results["Base_Angle_Pred_Pos"] = np.mod(results["Base_Angle_Pred"], 360)
 
-                    # Calculate the 'Base_Angle_Error' as the difference between the predicted and actual angles
-                    results["Base_Angle_Error"] = results["Base_Angle_Pred_Pos"] - results["Base_Angle"]
+                # Calculate the 'Base_Angle_Error' as the difference between the predicted and actual angles
+                results["Base_Angle_Error"] = results["Base_Angle_Pred_Pos"] - results["Base_Angle"]
 
-                    # Apply the wrapping logic in a vectorized manner using numpy's where
-                    results["Base_Angle_Error"] = np.where(
-                        results["Base_Angle_Error"] > 180, 
-                        results["Base_Angle_Error"] - 360, 
-                        np.where(results["Base_Angle_Error"] < -180, 
-                                results["Base_Angle_Error"] + 360, 
-                                results["Base_Angle_Error"])
-                    )
+                # Apply the wrapping logic in a vectorized manner using numpy's where
+                results["Base_Angle_Error"] = np.where(
+                    results["Base_Angle_Error"] > 180, 
+                    results["Base_Angle_Error"] - 360, 
+                    np.where(results["Base_Angle_Error"] < -180, 
+                            results["Base_Angle_Error"] + 360, 
+                            results["Base_Angle_Error"])
+                )
+            # If results contain a column named 'Blade_angle', do the following
+            if "Blade_Angle" in results.columns:
+                # Normalize 'Blade_Angle_Pred' to the range [0, 120)
+                results["Blade_Angle_Pred_Pos"] = np.mod(results["Blade_Angle_Pred"], 120)
 
-                    # Normalize 'Blade_Angle_Pred' to the range [0, 120)
-                    results["Blade_Angle_Pred_Pos"] = np.mod(results["Blade_Angle_Pred"], 120)
-                    
-                    # Calculate the 'Blade_Angle_Error' as the difference between the predicted and actual angles
-                    results["Blade_Angle_Error"] = results["Blade_Angle_Pred_Pos"] - results["Blade_Angle"]
+                # Calculate the 'Blade_Angle_Error' as the difference between the predicted and actual angles
+                results["Blade_Angle_Error"] = results["Blade_Angle_Pred_Pos"] - results["Blade_Angle"]
 
-                    # Apply the wrapping logic in a vectorized manner using numpy's where
-                    results["Blade_Angle_Error"] = np.where(
-                        results["Blade_Angle_Error"] > 60, 
-                        results["Blade_Angle_Error"] - 120, 
-                        np.where(results["Blade_Angle_Error"] < -60, 
-                                results["Blade_Angle_Error"] + 120, 
-                                results["Blade_Angle_Error"])
-                    )
-                    return results
+                # Apply the wrapping logic in a vectorized manner using numpy's where
+                results["Blade_Angle_Error"] = np.where(
+                    results["Blade_Angle_Error"] > 60, 
+                    results["Blade_Angle_Error"] - 120, 
+                    np.where(results["Blade_Angle_Error"] < -60, 
+                            results["Blade_Angle_Error"] + 120, 
+                            results["Blade_Angle_Error"])
+                )
+            
+            return results
 
 # %%
 # Test all data

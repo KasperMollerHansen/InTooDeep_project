@@ -249,7 +249,7 @@ class Trainer():
             optimizer.zero_grad()
 
         if self.schedular:
-            self.schedular.step()
+            self.schedular.step(loss)
 
         avg_loss = running_loss / len(dataloader)
         avg_accuracy = running_accuracy / len(dataloader)
