@@ -57,8 +57,8 @@ def transform(image):
 
 angle_type = "both"
 batch_size = 32
-images_num = 2
-base_angle_range = [360,0] # [360, 0] for all angles
+images_num = 1
+base_angle_range = [300,60] # [0, 360] for all angles
 model = nw.ResNet50_fm
 ############################################
 
@@ -83,10 +83,10 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-7)
 #optimizer_2 = torch.optim.SGD(model.parameters(), lr=1e-5, momentum=0, dampening=0, weight_decay=0)
 
 #Scheduler
-schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1, threshold=0.0001)
+schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2, threshold=0.0001)
 
 #Trainer
-epochs = 1
+epochs = 20
 accu_th = [20,10,5]
 trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
                      epochs=epochs, accu_th=accu_th, angle_type=angle_type, 
