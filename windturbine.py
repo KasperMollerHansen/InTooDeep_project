@@ -295,7 +295,7 @@ class Trainer():
         return self.model
     
     def test_model(self, model, dataset, angle_type="base_angle"):
-        batch_size = 50
+        batch_size = 16
         dataloader = WindTurbineDataloader.dataloader(dataset, batch_size=batch_size, shuffle=False)
         model.eval()
         
