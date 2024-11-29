@@ -24,8 +24,24 @@ def change_csv_file(csv_file):
 
     df.to_csv('data/rotations_w_images.csv', index=False)
 
+def new_60_csv(csv_file):
+    # Read the CSV file
+    df = pd.read_csv(csv_file)
+    # Create a new column. This column should contain the image name from camera 01, if the base_rot is larger than 315 and less than 60.
+    # If the base_rot is larger than 210 and less than 315, the column should contain the image name from camera 02.
+    df["camera"] = df.apply(lambda x: x["camera_01"] if (x["base_rot"] > 315 or x["base_rot"] < 60) else np.nan, axis=1)
+    df["camera"] = df.apply(lambda x: x["camera_02"] if (x["base_rot"] > 210 and x["base_rot"] < 315) else x["camera"], axis=1)
+    df = df.dropna()
+    df["base_rot"] = df.apply(lambda x: np.mod(x["base_rot"] + 90, 360) if x["base_rot"] < 315 else x["base_rot"], axis=1)
+    # Drop the camera_01 and camera_02 columns
+    df = df.drop(columns=["camera_01", "camera_02"])
+
+    # Save the new CSV file
+    df.to_csv('data/rotations_w_images_60.csv', index=False)
+
 if __name__ == "__main__":
-    change_csv_file("/data/rotations.csv") # Fix for jupyter
+    change_csv_file("data/rotations.csv") # Fix for jupyter
+    new_60_csv("data/rotations_w_images.csv") # Fix for jupyter
 
 # Dataset
 class WindTurbineDataset(Dataset):
