@@ -14,17 +14,25 @@ sys.path.append(root_dir)
 
 #%%
 # Change CSV file
-def change_csv_file(csv_file):
+def change_csv_file(csv_file='data/init_csv/rotations.csv'):
     # Read the CSV file
     df = pd.read_csv(csv_file)
     # Create 2 new columns
     df["camera_01"] = df.index.to_series().apply(lambda x: f"camera_01/image_01_{x + 1}.jpg")
     df["camera_02"] = df.index.to_series().apply(lambda x: f"camera_02/image_02_{x + 1}.jpg")
     # Save the new CSV file
-
     df.to_csv('data/rotations_w_images.csv', index=False)
 
-def long_data_set(csv_file):
+def change_60deg_csv_file(csv_file='data/init_csv/rotations_60deg.csv'):
+    # Read the CSV file
+    df = pd.read_csv(csv_file)
+    df["base_rot"] = df["base_rot"].apply(lambda x: np.mod(x, 360))
+    # Create 2 new columns
+    df["camera"] = df.index.to_series().apply(lambda x: f"camera_03/image_03_{x + 1}.jpg")
+    # Save the new CSV file
+    df.to_csv('data/rotations_60deg_w_images.csv', index=False)
+
+def long_data_set(csv_file="data/rotations_w_images.csv"):
     df_cam1 = pd.read_csv(csv_file)
     df_cam2 = df_cam1.copy()
     df_cam1["camera"] = df_cam1["camera_01"]
@@ -36,17 +44,22 @@ def long_data_set(csv_file):
     df = df.drop(columns=["camera_01", "camera_02"])
     df.to_csv('data/rotations_w_images_long.csv', index=False)
 
-def new_angle_csv(csv_file, angle):
-    # Read the CSV file
-    df = pd.read_csv(csv_file)
-    # Only keep base_rot larger than 300 and less than 60
+def angle_data_set(csv_file1 = 'data/rotations_w_images_long.csv', csv_file2 = 'data/rotations_60deg_w_images.csv', angle=60):
+    # 60 is the maximum angle
+    df1 = pd.read_csv(csv_file1)
+    df2 = pd.read_csv(csv_file2)
+    df = pd.concat([df1, df2], ignore_index=True)
     df = df[(df["base_rot"] > 360-angle) | (df["base_rot"] < angle)]
-    df.to_csv(f'data/rotations_w_images_{angle}.csv', index=False)
+    df.to_csv(f'data/rotations_w_images_long_{angle}_deg.csv', index=False)
 
 if __name__ == "__main__":
-    change_csv_file("data/rotations.csv")
-    long_data_set("data/rotations_w_images.csv")
-    new_angle_csv("data/rotations_w_images_long.csv",60)
+    change_csv_file()
+    change_60deg_csv_file()
+    long_data_set()
+    angle_data_set(angle=60)
+    angle_data_set(angle=45)
+    angle_data_set(angle=30)
+
 
 # Dataset
 class WindTurbineDataset(Dataset):

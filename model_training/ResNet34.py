@@ -51,7 +51,7 @@ def transform(image):
     ])
     return transform(image)
 
-angle_type = "base_angle"
+angle_type = "both"
 batch_size = 16
 images_num = 1
 base_angle_range = [0,360]
@@ -60,7 +60,7 @@ lr = 1e-2
 epochs = 40
 ############################################
 
-wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images_60.csv', root_dir=root_dir+'/data/', 
+wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images_long_60_deg.csv', root_dir=root_dir+'/data/', 
                                      images_num=images_num, transform=transform, angle_type=angle_type, base_angle_range=base_angle_range)
 print(f"Dataset size: {len(wind_dataset)}")
 
