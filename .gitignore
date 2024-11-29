@@ -8,6 +8,7 @@ __pycache__/
 
 # data
 data/*
+!data/init*
 !data/rotations*
 *poetry.lock
 
