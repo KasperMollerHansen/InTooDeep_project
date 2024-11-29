@@ -38,9 +38,12 @@ import networks as nw
 # Variables
 ############################################
 def transform(image):
+    # Get 2 random numbers between -20 and 20
+    x,y = np.random.randint(-25, 25, 2)
+
     # Convert image to array
     image = np.array(image)
-    image = image[225:525,490:790]
+    image = image[225+x:525+x,490+y:790+y]
 
     # Convert back to PIL Image for further transforms
     image = Image.fromarray(image)
@@ -60,7 +63,7 @@ lr = 1e-2
 epochs = 40
 ############################################
 
-wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images_long_60_deg.csv', root_dir=root_dir+'/data/', 
+wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images_long_30_deg.csv', root_dir=root_dir+'/data/', 
                                      images_num=images_num, transform=transform, angle_type=angle_type, base_angle_range=base_angle_range)
 print(f"Dataset size: {len(wind_dataset)}")
 
