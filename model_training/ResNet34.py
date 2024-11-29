@@ -52,11 +52,12 @@ def transform(image):
     return transform(image)
 
 angle_type = "base_angle"
-batch_size = 4 
+batch_size = 16
 images_num = 1
 base_angle_range = [0,360]
 model = nw.ResNet34
-lr = 1e-3
+lr = 1e-2
+epochs = 40
 ############################################
 
 wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 
@@ -79,10 +80,9 @@ criterion = wt.AngularVectorLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 #Scheduler
-schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=1, threshold=0.0001)
+schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=np.sqrt(0.1), patience=2, threshold=0.0001)
 
 #Trainer
-epochs = 10
 accu_th = [20,10,5]
 trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
                      epochs=epochs, accu_th=accu_th, angle_type=angle_type, 
@@ -113,8 +113,8 @@ plt.show()
 
 # %%
 # Save the model
-# torch.save(model.to("cpu").state_dict(), model_name)
-# print("Model saved successfully")
+torch.save(model.to("cpu").state_dict(), model_name)
+print("Model saved successfully")
 
 # %%
 # Test the model
