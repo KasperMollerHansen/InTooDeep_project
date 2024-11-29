@@ -118,6 +118,16 @@ if __name__ == "__main__":
     # Print summary for a (3, 300, 300) input
     summary(model, input_size=(3, 300, 300), device=device.type)
 
+#%%
+ResNet50 = torchvision.models.resnet50(weights=False)
+ResNet50.fc = nn.Linear(in_features=2048, out_features=2)
+if __name__ == "__main__":
+    # Set device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = ResNet50.to(device)
+    # Print summary for a (3, 300, 300) input
+    summary(model, input_size=(3, 300, 300), device=device.type)
+
 #%% 
 
 ResNet101_Pretrained = torchvision.models.resnet101(weights=True)
