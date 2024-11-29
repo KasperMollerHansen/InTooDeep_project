@@ -24,23 +24,29 @@ def change_csv_file(csv_file):
 
     df.to_csv('data/rotations_w_images.csv', index=False)
 
-def new_60_csv(csv_file):
+def long_data_set(csv_file):
+    df_cam1 = pd.read_csv(csv_file)
+    df_cam2 = df_cam1.copy()
+    df_cam1["camera"] = df_cam1["camera_01"]
+    df_cam2["camera"] = df_cam2["camera_02"]
+    df_cam2["base_rot"] = df_cam2["base_rot"] - 90
+    df_cam2["base_rot"] = df_cam2["base_rot"].apply(lambda x: np.mod(x, 360))
+    # concatenate the two dataframes
+    df = pd.concat([df_cam1, df_cam2], ignore_index=True)
+    df = df.drop(columns=["camera_01", "camera_02"])
+    df.to_csv('data/rotations_w_images_long.csv', index=False)
+
+def new_angle_csv(csv_file, angle):
     # Read the CSV file
     df = pd.read_csv(csv_file)
-    # Create a new column. This column should contain the image name from camera 01, if the base_rot is larger than 315 and less than 60.
-    # If the base_rot is larger than 210 and less than 315, the column should contain the image name from camera 02.
-    df["camera"] = df.apply(lambda x: x["camera_01"] if (x["base_rot"] > 330 or x["base_rot"] < 45) else np.nan, axis=1)
-    df["camera"] = df.apply(lambda x: x["camera_02"] if (x["base_rot"] > 45 and x["base_rot"] < 150) else x["camera"], axis=1)
-    df = df.dropna()
-    df["base_rot"] = df.apply(lambda x: np.mod(x["base_rot"] - 90, 360) if (x["base_rot"] > 45 and x["base_rot"] < 150) else x["base_rot"], axis=1)
-    # Drop the camera_01 and camera_02 columns
-    df = df.drop(columns=["camera_01", "camera_02"])
-    # Save the new CSV file
-    df.to_csv('data/rotations_w_images_60.csv', index=False)
+    # Only keep base_rot larger than 300 and less than 60
+    df = df[(df["base_rot"] > 360-angle) | (df["base_rot"] < angle)]
+    df.to_csv(f'data/rotations_w_images_{angle}.csv', index=False)
 
 if __name__ == "__main__":
     change_csv_file("data/rotations.csv")
-    new_60_csv("data/rotations_w_images.csv")
+    long_data_set("data/rotations_w_images.csv")
+    new_angle_csv("data/rotations_w_images_long.csv",60)
 
 # Dataset
 class WindTurbineDataset(Dataset):
