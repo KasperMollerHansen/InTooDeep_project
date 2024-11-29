@@ -18,14 +18,29 @@ def change_csv_file(csv_file):
     # Read the CSV file
     df = pd.read_csv(csv_file)
     # Create 2 new columns
-    df["camera_01"] = df.index.to_series().apply(lambda x: f"image_01_{x + 1}.jpg")
-    df["camera_02"] = df.index.to_series().apply(lambda x: f"image_02_{x + 1}.jpg")
+    df["camera_01"] = df.index.to_series().apply(lambda x: f"camera_01/image_01_{x + 1}.jpg")
+    df["camera_02"] = df.index.to_series().apply(lambda x: f"camera_02/image_02_{x + 1}.jpg")
     # Save the new CSV file
 
     df.to_csv('data/rotations_w_images.csv', index=False)
 
+def new_60_csv(csv_file):
+    # Read the CSV file
+    df = pd.read_csv(csv_file)
+    # Create a new column. This column should contain the image name from camera 01, if the base_rot is larger than 315 and less than 60.
+    # If the base_rot is larger than 210 and less than 315, the column should contain the image name from camera 02.
+    df["camera"] = df.apply(lambda x: x["camera_01"] if (x["base_rot"] > 330 or x["base_rot"] < 45) else np.nan, axis=1)
+    df["camera"] = df.apply(lambda x: x["camera_02"] if (x["base_rot"] > 45 and x["base_rot"] < 150) else x["camera"], axis=1)
+    df = df.dropna()
+    df["base_rot"] = df.apply(lambda x: np.mod(x["base_rot"] - 90, 360) if (x["base_rot"] > 45 and x["base_rot"] < 150) else x["base_rot"], axis=1)
+    # Drop the camera_01 and camera_02 columns
+    df = df.drop(columns=["camera_01", "camera_02"])
+    # Save the new CSV file
+    df.to_csv('data/rotations_w_images_60.csv', index=False)
+
 if __name__ == "__main__":
-    change_csv_file("/data/rotations.csv") # Fix for jupyter
+    change_csv_file("data/rotations.csv")
+    new_60_csv("data/rotations_w_images.csv")
 
 # Dataset
 class WindTurbineDataset(Dataset):
@@ -35,23 +50,20 @@ class WindTurbineDataset(Dataset):
     Args:
         root_dir (string): Directory with csv and image folder.
         csv_file (string): Path to the csv file with filenames and angles.
-        image_folder (string): Directory with images.
         transform (callable, optional): Optional transform to be applied on a sample.
         images_num (int, optional): Number of images per sample. Default is 1.
         grayscale (bool, optional): Whether to convert images to grayscale. Default is False.
         angle_type (string, optional): Type of angle to predict. Default is "both". Options: "base_angle", "blade_angle", "both"
         base_angle_range (list, optional): Range of base angles to include. Default is [0, 360]. [min, max]
     """
-    def __init__(self, csv_file, image_folder, root_dir, transform=None, images_num=1, angle_type="both", base_angle_range=[0, 360]):
+    def __init__(self, csv_file, root_dir, transform=None, images_num=1, angle_type="both", base_angle_range=[0, 360]):
         self.root_dir = root_dir
         csv_path = os.path.join(self.root_dir, csv_file)
         self.rotations_df = pd.read_csv(csv_path)
         self.images_num = images_num
         self.angle_type = angle_type
         self.transform = transform  # Accept external transformation callable
-        self.image_folder = [
-            os.path.join(image_folder + f"_0{i + 1}/") for i in range(images_num)
-        ]
+
         # Filter out base angles outside the range
         if base_angle_range[1] > base_angle_range[0]:
             self.rotations_df = self.rotations_df[
@@ -81,7 +93,7 @@ class WindTurbineDataset(Dataset):
         images = []
         for i in range(self.images_num):
             img_name = os.path.join(
-                self.root_dir, self.image_folder[i], self.rotations_df.iloc[idx, i + 2])  # 'filename' is the third column
+                self.root_dir, self.rotations_df.iloc[idx, i + 2])  # 'filename' is the third column
             images.append(Image.open(img_name))
 
         # Retrieve angles
@@ -371,3 +383,4 @@ class Trainer():
                 )
             
             return results
+# %%
