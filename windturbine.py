@@ -17,16 +17,31 @@ sys.path.append(root_dir)
 def change_csv_file(csv_file):
     # Read the CSV file
     df = pd.read_csv(csv_file)
+    
     # Create 2 new columns
     df["camera_01"] = df.index.to_series().apply(lambda x: f"image_01_{x + 1}.jpg")
     df["camera_02"] = df.index.to_series().apply(lambda x: f"image_02_{x + 1}.jpg")
-    # Save the new CSV file
 
+    # Strip leading and trailing spaces from column names
+    df.columns = df.columns.str.strip()
+
+    # Filter rows where either base_rot or wings_rot is > 210 or < 60
+    filtered_df = df[
+        (df['base_rot'] > 210) | (df['base_rot'] < 60) |
+        (df['wings_rot'] > 210) | (df['wings_rot'] < 60)
+    ].copy() 
+    
+    # Create two new columns for camera images using .loc
+    filtered_df.loc[:, "camera_01"] = filtered_df.index.to_series().apply(lambda x: f"image_01_{x + 1}.jpg")
+    filtered_df.loc[:, "camera_02"] = filtered_df.index.to_series().apply(lambda x: f"image_02_{x + 1}.jpg")
+    
+    # Save the new CSV file
     df.to_csv('data/rotations_w_images.csv', index=False)
+    filtered_df.to_csv('data/filtered_rotations_w_images.csv', index=False)
 
 if __name__ == "__main__":
-    change_csv_file("/data/rotations.csv") # Fix for jupyter
-
+    change_csv_file("data/rotations.csv") # Fix for jupyter
+#%%
 # Dataset
 class WindTurbineDataset(Dataset):
     """
