@@ -51,7 +51,7 @@ def transform(image):
     ])
     return transform(image)
 
-angle_type = "both"
+angle_type = "base_angle"
 batch_size = 16
 images_num = 1
 base_angle_range = [0,360]
