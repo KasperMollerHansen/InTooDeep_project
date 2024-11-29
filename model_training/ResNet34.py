@@ -51,7 +51,7 @@ def transform(image):
     ])
     return transform(image)
 
-angle_type = "base_angle"
+angle_type = "both"
 batch_size = 16
 images_num = 1
 base_angle_range = [0,360]
@@ -75,7 +75,8 @@ except:
     print("Model not found, training from scratch")
 model = model.to(device)
 
-criterion = wt.AngularVectorLoss()
+# criterion = wt.AngularVectorLoss()
+criterion = wt.BaseBladeLoss_test()
 # Optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -87,6 +88,7 @@ accu_th = [20,10,5]
 trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
                      epochs=epochs, accu_th=accu_th, angle_type=angle_type, 
                      schedular=schedular, minimal=False)
+
 # %%
 model = trainer.train_model()
 
