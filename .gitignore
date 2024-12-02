@@ -10,7 +10,11 @@ __pycache__/
 data/*
 !data/init*
 !data/rotations*
+final_notebook/data/*
+!final_notebook/data/init*
+!final_notebook/data/rotations*
 *poetry.lock
+
 
 # Distribution / packaging
 .Python
