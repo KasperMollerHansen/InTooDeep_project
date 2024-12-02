@@ -38,13 +38,6 @@ import networks as nw
 # Variables
 ############################################
 def transform(image):
-    # Get 2 random numbers between -20 and 20
-    x,y = np.random.randint(-25, 25, 2)
-
-    # Convert image to array
-    image = np.array(image)
-    image = image[225+x:525+x,490+y:790+y]
-
     # Convert back to PIL Image for further transforms
     image = Image.fromarray(image)
 
@@ -52,6 +45,36 @@ def transform(image):
     transform = transforms.Compose([
         transforms.ToTensor(),  # Convert to tensor
     ])
+    return transform(image)
+
+def transform_noise(image):
+    # Get either 0 or 1
+    noise = np.random.randint(0, 2)
+    if noise == 0:
+        # Get 2 random numbers between -50 and 50
+        x,y = np.random.randint(-50, 50, 2)
+
+        # Convert image to array
+        image = np.array(image)
+        image = image[225+x:525+x,490+y:790+y]
+
+        # Convert back to PIL Image for further transforms
+        image = Image.fromarray(image)
+
+        # Compose transformations
+        transform = transforms.Compose([
+            transforms.ToTensor(),  # Convert to tensor
+        ])
+    else:
+        # Get a random number between 500 and 900
+        x = np.random.randint(500, 900)
+        transform = transforms.Compose([
+            transforms.CenterCrop(x),
+            transforms.Resize(300),
+            transforms.ToTensor(),
+        ])
+
+
     return transform(image)
 
 angle_type = "both"
@@ -63,8 +86,8 @@ lr = 1e-2
 epochs = 40
 ############################################
 
-wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images_long_30_deg.csv', root_dir=root_dir+'/data/', 
-                                     images_num=images_num, transform=transform, angle_type=angle_type, base_angle_range=base_angle_range)
+wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images_long.csv', root_dir=root_dir+'/data/', 
+                                     images_num=images_num, transform=transform_noise, angle_type=angle_type, base_angle_range=base_angle_range)
 print(f"Dataset size: {len(wind_dataset)}")
 
 train_dataset, test_dataset = wt.WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
