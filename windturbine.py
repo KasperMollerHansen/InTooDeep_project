@@ -17,6 +17,7 @@ sys.path.append(root_dir)
 def change_csv_file(csv_file='data/init_csv/rotations.csv'):
     # Read the CSV file
     df = pd.read_csv(csv_file)
+    df["base_rot"] = df["base_rot"].apply(lambda x: np.mod(x, 360))
     # Create 2 new columns
     df["camera_01"] = df.index.to_series().apply(lambda x: f"camera_01/image_01_{x + 1}.jpg")
     df["camera_02"] = df.index.to_series().apply(lambda x: f"camera_02/image_02_{x + 1}.jpg")
@@ -59,7 +60,6 @@ if __name__ == "__main__":
     angle_data_set(angle=60)
     angle_data_set(angle=45)
     angle_data_set(angle=30)
-
 
 # Dataset
 class WindTurbineDataset(Dataset):
