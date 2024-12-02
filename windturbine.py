@@ -193,13 +193,12 @@ class AngularVectorLoss(nn.Module):
             diff_norm = diff_norm * (18/torch.pi)  # Convert to degrees/10
 
             loss.append(torch.mean(diff_norm ** 2))  # Mean squared error
-        
+
         return torch.sum(torch.stack(loss))
 
 class BaseBladeLoss_test(nn.Module):
     def __init__(self):
         super(BaseBladeLoss_test, self).__init__()
-    
     def forward(self, pred_init, target_init, is_degrees=False):
         # Test if the dimensions are correct
         if pred_init.shape != target_init.shape:
@@ -213,7 +212,6 @@ class BaseBladeLoss_test(nn.Module):
         baseL = torch.mean((torch.cos(pred[:,0]) - torch.cos(target[:,0]))**2 + (torch.sin(pred[:,0]) - torch.sin(target[:,0]))**2) * 1/(2*torch.pi)
         bladeL = torch.mean((torch.cos(pred[:,1]*3) - torch.cos(target[:,1]*3))**2 + (torch.sin(pred[:,1]*3) - torch.sin(target[:,1]*3))**2) * 3/(2*torch.pi)
         L = baseL + bladeL
-        
         return L
 
 # Trainers
