@@ -241,12 +241,12 @@ class modLoss(nn.Module):
             
         err = torch.abs(pred-target)
         if self.n_input == 2:
-            baseL = torch.mean(np.mod((err[:,0] + torch.pi), 2*torch.pi) - torch.pi)
-            bladeL = torch.mean(np.mod((err[:,1] + 1/3*torch.pi), 2/3*torch.pi) - 1/3*torch.pi)
+            baseL = torch.mean(torch.remainder((err[:,0] + torch.pi), 2*torch.pi) - torch.pi)
+            bladeL = torch.mean(torch.remainder((err[:,1] + 1/3*torch.pi), 2/3*torch.pi) - 1/3*torch.pi)
             loss = baseL + bladeL
             return loss
         else:
-            loss = torch.mean(np.mod((err + np.pi), 2*np.pi) - np.pi)
+            loss = torch.mean(torch.remainder((err + np.pi), 2*np.pi) - np.pi)
             return loss
 
 # Trainers
