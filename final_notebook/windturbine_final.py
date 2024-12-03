@@ -138,9 +138,12 @@ class BaseBladeLoss(nn.Module):
         self.input = n_input
         super(BaseBladeLoss, self).__init__()
     def forward(self, pred_init, target_init, is_degrees=False):
-        scale = self.scale
+        # Test if the dimensions are correct
+        if pred_init.shape != target_init.shape:
+            raise ValueError("The dimensions of the predicted and target tensors must match.")
         pred = pred_init
         target = target_init
+        scale = self.scale
         if is_degrees:
             pred = pred * (torch.pi / 180)
             target = target * (torch.pi / 180)
@@ -158,6 +161,9 @@ class modLoss(nn.Module):
         self.n_input = n_input
         super(modLoss, self).__init__()
     def forward(self, pred_init, target_init, is_degrees=False):
+        # Test if the dimensions are correct
+        if pred_init.shape != target_init.shape:
+            raise ValueError("The dimensions of the predicted and target tensors must match.")
         pred = pred_init
         target = target_init
         
