@@ -234,17 +234,19 @@ class modLoss(nn.Module):
     def forward(self, pred_init, target_init, is_degrees=False):
         pred = pred_init
         target = target_init
+        
         if is_degrees:
             pred = pred * (torch.pi / 180)
             target = target * (torch.pi / 180)
-        err = abs(pred-target)
+            
+        err = torch.abs(pred-target)
         if self.n_input == 2:
-            baseL = np.mod((err[0] + np.pi), 2*np.pi) - np.pi 
-            bladeL = np.mod((err[1] + 1/3*np.pi), 2/3*np.pi) - 1/3*np.pi
-            loss = np.array([baseL, bladeL])**2
+            baseL = torch.mean(np.mod((err[:,0] + torch.pi), 2*torch.pi) - torch.pi)
+            bladeL = torch.mean(np.mod((err[:,1] + 1/3*torch.pi), 2/3*torch.pi) - 1/3*torch.pi)
+            loss = baseL + bladeL
             return loss
         else:
-            loss = np.mod((err + np.pi), 2*np.pi) - np.pi
+            loss = torch.mean(np.mod((err + np.pi), 2*np.pi) - np.pi)
             return loss
 
 # Trainers
