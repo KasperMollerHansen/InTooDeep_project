@@ -228,21 +228,24 @@ class BaseBladeLoss_test(nn.Module):
         return L
 
 class modLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, n_input=2):
+        self.n_input = n_input
         super(modLoss, self).__init__()
     def forward(self, pred_init, target_init, is_degrees=False):
         pred = pred_init
         target = target_init
-        if pred_init.shape != target_init.shape:
-            raise ValueError("The dimensions of the predicted and target tensors must match.")
-        pred = pred_init
-        target = target_init
-        
+        if is_degrees:
+            pred = pred * (torch.pi / 180)
+            target = target * (torch.pi / 180)
         err = abs(pred-target)
-        baseL = np.mod((err[0] + np.pi), 2*np.pi) - np.pi 
-        bladeL = np.mod((err[1] + 1/3*np.pi), 2/3*np.pi) - 1/3*np.pi
-        loss = np.array([baseL, bladeL])**2
-        return loss
+        if self.n_input == 2:
+            baseL = np.mod((err[0] + np.pi), 2*np.pi) - np.pi 
+            bladeL = np.mod((err[1] + 1/3*np.pi), 2/3*np.pi) - 1/3*np.pi
+            loss = np.array([baseL, bladeL])**2
+            return loss
+        else:
+            loss = np.mod((err + np.pi), 2*np.pi) - np.pi
+            return loss
 
 # Trainers
 class Trainer():
