@@ -38,10 +38,6 @@ import networks as nw
 # Variables
 ############################################
 def transform(image):
-    # Convert image to array
-    image = np.array(image)
-    image = image[225:525,490:790]
-
     # Convert back to PIL Image for further transforms
     image = Image.fromarray(image)
 
@@ -51,16 +47,47 @@ def transform(image):
     ])
     return transform(image)
 
-angle_type = "base_angle"
-batch_size = 4 
+def transform_noise(image):
+    # Get either 0 or 1
+    noise = np.random.randint(0, 2)
+    if noise == 0:
+        # Get 2 random numbers between -50 and 50
+        x,y = np.random.randint(-50, 50, 2)
+
+        # Convert image to array
+        image = np.array(image)
+        image = image[225+x:525+x,490+y:790+y]
+
+        # Convert back to PIL Image for further transforms
+        image = Image.fromarray(image)
+
+        # Compose transformations
+        transform = transforms.Compose([
+            transforms.ToTensor(),  # Convert to tensor
+        ])
+    else:
+        # Get a random number between 500 and 900
+        x = np.random.randint(500, 900)
+        transform = transforms.Compose([
+            transforms.CenterCrop(x),
+            transforms.Resize(300),
+            transforms.ToTensor(),
+        ])
+
+
+    return transform(image)
+
+angle_type = "both"
+batch_size = 16
 images_num = 1
 base_angle_range = [0,360]
 model = nw.ResNet34
-lr = 1e-3
+lr = 1e-2
+epochs = 40
 ############################################
 
-wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images.csv', image_folder='camera', 
-                                     root_dir=root_dir+'/data/', images_num=images_num, transform=transform, angle_type=angle_type, base_angle_range=base_angle_range)
+wind_dataset = wt.WindTurbineDataset(csv_file='rotations_w_images_long.csv', root_dir=root_dir+'/data/', 
+                                     images_num=images_num, transform=transform_noise, angle_type=angle_type, base_angle_range=base_angle_range)
 print(f"Dataset size: {len(wind_dataset)}")
 
 train_dataset, test_dataset = wt.WindTurbineDataloader.train_test_split(wind_dataset, test_size=0.2)
@@ -74,19 +101,20 @@ except:
     print("Model not found, training from scratch")
 model = model.to(device)
 
-criterion = wt.AngularVectorLoss()
+# criterion = wt.AngularVectorLoss()
+criterion = wt.BaseBladeLoss_test()
 # Optimizer
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 #Scheduler
-schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=1, threshold=0.0001)
+schedular = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=np.sqrt(0.1), patience=2, threshold=0.0001)
 
 #Trainer
-epochs = 10
 accu_th = [20,10,5]
 trainer = wt.Trainer(model, trainloader, testloader, criterion, optimizer,device, 
                      epochs=epochs, accu_th=accu_th, angle_type=angle_type, 
                      schedular=schedular, minimal=False)
+
 # %%
 model = trainer.train_model()
 
@@ -113,8 +141,8 @@ plt.show()
 
 # %%
 # Save the model
-# torch.save(model.to("cpu").state_dict(), model_name)
-# print("Model saved successfully")
+torch.save(model.to("cpu").state_dict(), model_name)
+print("Model saved successfully")
 
 # %%
 # Test the model

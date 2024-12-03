@@ -90,8 +90,10 @@ if __name__ == "__main__":
     # Print summary for a (3, 300, 300) input
     summary(model, input_size=(3, 300, 300), device=device.type)
 # %%
-ResNet34 = torch.hub.load('pytorch/vision:v0.20.0', 'resnet34')
-ResNet34.fc = torch.nn.Linear(in_features=512,out_features=1,bias=True)
+# ResNet34 = torch.hub.load('pytorch/vision:v0.20.0', 'resnet34')
+ResNet34 = torchvision.models.resnet34(weights=False)
+# ResNet34.fc = torch.nn.Linear(in_features=512,out_features=1,bias=True)
+ResNet34.fc = torch.nn.Linear(in_features=512,out_features=2,bias=True)
 
 # %%
 ResNet50_full_monty = torchvision.models.resnet50(weights=False)
@@ -116,16 +118,13 @@ if __name__ == "__main__":
     # Print summary for a (3, 300, 300) input
     summary(model, input_size=(3, 300, 300), device=device.type)
 
-#%% 
-
-ResNet101_Pretrained = torchvision.models.resnet101(weights=True)
-for param in ResNet101_Pretrained.parameters():
-    param.requires_grad = False
-ResNet101_Pretrained.fc = nn.Linear(in_features=2048, out_features=1)
+#%%
+ResNet50 = torchvision.models.resnet50(weights=False)
+ResNet50.fc = nn.Linear(in_features=2048, out_features=2)
 if __name__ == "__main__":
     # Set device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ResNet101_Pretrained.to(device)
+    model = ResNet50.to(device)
     # Print summary for a (3, 300, 300) input
     summary(model, input_size=(3, 300, 300), device=device.type)
 

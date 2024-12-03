@@ -15,18 +15,52 @@ sys.path.append(root_dir)
 
 #%%
 # Change CSV file
-def change_csv_file(csv_file):
+def change_csv_file(csv_file='data/init_csv/rotations.csv'):
     # Read the CSV file
     df = pd.read_csv(csv_file)
+    df["base_rot"] = df["base_rot"].apply(lambda x: np.mod(x, 360))
     # Create 2 new columns
-    df["camera_01"] = df.index.to_series().apply(lambda x: f"image_01_{x + 1}.jpg")
-    df["camera_02"] = df.index.to_series().apply(lambda x: f"image_02_{x + 1}.jpg")
+    df["camera_01"] = df.index.to_series().apply(lambda x: f"camera_01/image_01_{x + 1}.jpg")
+    df["camera_02"] = df.index.to_series().apply(lambda x: f"camera_02/image_02_{x + 1}.jpg")
     # Save the new CSV file
-
     df.to_csv('data/rotations_w_images.csv', index=False)
 
+def change_60deg_csv_file(csv_file='data/init_csv/rotations_60deg.csv'):
+    # Read the CSV file
+    df = pd.read_csv(csv_file)
+    df["base_rot"] = df["base_rot"].apply(lambda x: np.mod(x, 360))
+    # Create 2 new columns
+    df["camera"] = df.index.to_series().apply(lambda x: f"camera_03/image_03_{x + 1}.jpg")
+    # Save the new CSV file
+    df.to_csv('data/rotations_60deg_w_images.csv', index=False)
+
+def long_data_set(csv_file="data/rotations_w_images.csv"):
+    df_cam1 = pd.read_csv(csv_file)
+    df_cam2 = df_cam1.copy()
+    df_cam1["camera"] = df_cam1["camera_01"]
+    df_cam2["camera"] = df_cam2["camera_02"]
+    df_cam2["base_rot"] = df_cam2["base_rot"] - 90
+    df_cam2["base_rot"] = df_cam2["base_rot"].apply(lambda x: np.mod(x, 360))
+    # concatenate the two dataframes
+    df = pd.concat([df_cam1, df_cam2], ignore_index=True)
+    df = df.drop(columns=["camera_01", "camera_02"])
+    df.to_csv('data/rotations_w_images_long.csv', index=False)
+
+def angle_data_set(csv_file1 = 'data/rotations_w_images_long.csv', csv_file2 = 'data/rotations_60deg_w_images.csv', angle=60):
+    # 60 is the maximum angle
+    df1 = pd.read_csv(csv_file1)
+    df2 = pd.read_csv(csv_file2)
+    df = pd.concat([df1, df2], ignore_index=True)
+    df = df[(df["base_rot"] > 360-angle) | (df["base_rot"] < angle)]
+    df.to_csv(f'data/rotations_w_images_long_{angle}_deg.csv', index=False)
+
 if __name__ == "__main__":
-    change_csv_file("/data/rotations.csv") # Fix for jupyter
+    change_csv_file()
+    change_60deg_csv_file()
+    long_data_set()
+    angle_data_set(angle=60)
+    angle_data_set(angle=45)
+    angle_data_set(angle=30)
 
 # Dataset
 class WindTurbineDataset(Dataset):
@@ -36,23 +70,20 @@ class WindTurbineDataset(Dataset):
     Args:
         root_dir (string): Directory with csv and image folder.
         csv_file (string): Path to the csv file with filenames and angles.
-        image_folder (string): Directory with images.
         transform (callable, optional): Optional transform to be applied on a sample.
         images_num (int, optional): Number of images per sample. Default is 1.
         grayscale (bool, optional): Whether to convert images to grayscale. Default is False.
         angle_type (string, optional): Type of angle to predict. Default is "both". Options: "base_angle", "blade_angle", "both"
         base_angle_range (list, optional): Range of base angles to include. Default is [0, 360]. [min, max]
     """
-    def __init__(self, csv_file, image_folder, root_dir, transform=None, images_num=1, angle_type="both", base_angle_range=[0, 360]):
+    def __init__(self, csv_file, root_dir, transform=None, images_num=1, angle_type="both", base_angle_range=[0, 360]):
         self.root_dir = root_dir
         csv_path = os.path.join(self.root_dir, csv_file)
         self.rotations_df = pd.read_csv(csv_path)
         self.images_num = images_num
         self.angle_type = angle_type
         self.transform = transform  # Accept external transformation callable
-        self.image_folder = [
-            os.path.join(image_folder + f"_0{i + 1}/") for i in range(images_num)
-        ]
+
         # Filter out base angles outside the range
         if base_angle_range[1] > base_angle_range[0]:
             self.rotations_df = self.rotations_df[
@@ -82,7 +113,7 @@ class WindTurbineDataset(Dataset):
         images = []
         for i in range(self.images_num):
             img_name = os.path.join(
-                self.root_dir, self.image_folder[i], self.rotations_df.iloc[idx, i + 2])  # 'filename' is the third column
+                self.root_dir, self.rotations_df.iloc[idx, i + 2])  # 'filename' is the third column
             images.append(Image.open(img_name))
 
         # Retrieve angles
@@ -145,12 +176,30 @@ class AngularVectorLoss(nn.Module):
 
             # Compute vector difference and its norm
             diff = pred_vec - target_vec
-            diff_norm = torch.norm(diff, dim=-1)
-            diff_norm = diff_norm * (180/torch.pi)  # Convert to degrees
+            diff_norm = torch.norm(diff, dim=-1) * (1/scale)
+            diff_norm = diff_norm * (18/torch.pi)  # Convert to degrees/10
 
             loss.append(torch.mean(diff_norm ** 2))  # Mean squared error
-        
+
         return torch.sum(torch.stack(loss))
+
+class BaseBladeLoss_test(nn.Module):
+    def __init__(self):
+        super(BaseBladeLoss_test, self).__init__()
+    def forward(self, pred_init, target_init, is_degrees=False):
+        # Test if the dimensions are correct
+        if pred_init.shape != target_init.shape:
+            raise ValueError("The dimensions of the predicted and target tensors must match.")
+        pred = pred_init
+        target = target_init
+        if is_degrees:
+            pred = pred * (torch.pi / 180)
+            target = target * (torch.pi / 180)
+            
+        baseL = torch.mean((torch.cos(pred[:,0]) - torch.cos(target[:,0]))**2 + (torch.sin(pred[:,0]) - torch.sin(target[:,0]))**2) * 1/(2*torch.pi)
+        bladeL = torch.mean((torch.cos(pred[:,1]*3) - torch.cos(target[:,1]*3))**2 + (torch.sin(pred[:,1]*3) - torch.sin(target[:,1]*3))**2) * 3/(2*torch.pi)
+        L = baseL + bladeL
+        return L
 
 # Trainers
 class Trainer():
@@ -383,3 +432,4 @@ class Trainer():
                 )
             
             return results
+# %%

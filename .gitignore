@@ -8,9 +8,13 @@ __pycache__/
 
 # data
 data/*
-!data/rotations.csv
-!data/rotations_w_images.csv
+!data/init*
+!data/rotations*
+final_notebook/data/*
+!final_notebook/data/init*
+!final_notebook/data/rotations*
 *poetry.lock
+
 
 # Distribution / packaging
 .Python
