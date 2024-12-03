@@ -209,22 +209,25 @@ class AngularVectorLoss(nn.Module):
 
         return torch.sum(torch.stack(loss))
 
-class BaseBladeLoss_test(nn.Module):
-    def __init__(self):
-        super(BaseBladeLoss_test, self).__init__()
+class BaseBladeLoss(nn.Module):
+    def __init__(self, scale=1, input=2):
+        self.scale = scale
+        self.input = input
+        super(BaseBladeLoss, self).__init__()
     def forward(self, pred_init, target_init, is_degrees=False):
-        # Test if the dimensions are correct
-        if pred_init.shape != target_init.shape:
-            raise ValueError("The dimensions of the predicted and target tensors must match.")
+        scale = self.scale
         pred = pred_init
         target = target_init
         if is_degrees:
             pred = pred * (torch.pi / 180)
             target = target * (torch.pi / 180)
             
-        baseL = torch.mean((torch.cos(pred[:,0]) - torch.cos(target[:,0]))**2 + (torch.sin(pred[:,0]) - torch.sin(target[:,0]))**2) * 1/(2*torch.pi)
-        bladeL = torch.mean((torch.cos(pred[:,1]*3) - torch.cos(target[:,1]*3))**2 + (torch.sin(pred[:,1]*3) - torch.sin(target[:,1]*3))**2) * 3/(2*torch.pi)
-        L = baseL + bladeL
+        baseL = torch.mean(((torch.cos(pred[:,0]) - torch.cos(target[:,0]))*scale)**2 + ((torch.sin(pred[:,0]) - torch.sin(target[:,0]))*scale)**2) * 1/(2*torch.pi)
+        if self.input == 2:
+            bladeL = torch.mean(((torch.cos(pred[:,1]*3) - torch.cos(target[:,1]*3))*scale)**2 + ((torch.sin(pred[:,1]*3) - torch.sin(target[:,1]*3))*scale)**2) * 1/(2*torch.pi)
+            L = baseL + blade
+        else:
+            L = baseL
         return L
 
 # Trainers
