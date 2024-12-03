@@ -151,7 +151,8 @@ class BaseBladeLoss(nn.Module):
             
         baseL = torch.mean(((torch.cos(pred[:,0]) - torch.cos(target[:,0]))*scale)**2 + ((torch.sin(pred[:,0]) - torch.sin(target[:,0]))*scale)**2)
         if self.n_input == 2:
-            bladeL = torch.mean(((torch.cos(pred[:,1]*3) - torch.cos(target[:,1]*3))*scale)**2 + ((torch.sin(pred[:,1]*3) - torch.sin(target[:,1]*3))*scale)**2)
+            bladeL = torch.mean((((torch.cos(pred[:,1]*3) - torch.cos(target[:,1]*3))*scale)**2 + 
+                                 ((torch.sin(pred[:,1]*3) - torch.sin(target[:,1]*3))*scale)**2)*(1/4))
             L = baseL + bladeL
         else:
             L = baseL
@@ -303,7 +304,7 @@ class Trainer():
                 print(df.to_string(header=False))
         return self.model
     
-    def test_model(self, model, dataset, angle_type="base_angle", viz=False):
+    def test_model(self, model, dataset, angle_type="base_angle", viz=False,images_num=2):
         batch_size = 64
         k = 0
         dataloader = WindTurbineDataloader.dataloader(dataset, batch_size=batch_size, shuffle=False)
@@ -315,7 +316,7 @@ class Trainer():
         with torch.no_grad():
             for i, data in enumerate(dataloader):
                 inputs, labels = data
-                inputs_c, labels_c = inputs.to(self.device), labels.to(self.device)
+                inputs_c, _ = inputs.to(self.device), labels.to(self.device)
 
                 # Compute the prediction
                 pred = model(inputs_c)
@@ -342,8 +343,8 @@ class Trainer():
                             "Blade_Angle": labels[j,1].item(),
                             "Blade_Angle_Pred": pred[j,1].item()
                         })
-                if viz== True:   
-                    if k%1==0:
+                if (viz== True) & (images_num == 2):   
+                    if k%20==0:
                         diff_base = np.abs(pred[:, 0] - labels[:, 0])
                         diff_wings = np.abs(pred[:, 1] - labels[:, 1])
                         diff_base = np.fmod(diff_base, 360)
@@ -373,6 +374,32 @@ class Trainer():
                         plt.axis('off')
                         plt.title("Pred:(%.1f, %.1f) , Target:(%.1f, %.1f)" % (best_pred_base,best_pred_wings,
                                                                             labels[best_idx,0],labels[best_idx,1]))
+                        plt.tight_layout()
+                        plt.show()
+                    k += 1
+                else:
+                    if k%20==0:
+                        diff_base = np.abs(pred - labels)
+                        diff_base = np.fmod(diff_base, 360)
+                        diff_base = np.squeeze(np.minimum(diff_base, 360 - diff_base))
+                        diff_sorted_idx = np.argsort(diff_base)
+                        worst_idx = diff_sorted_idx[-1]
+                        best_idx = diff_sorted_idx[0]
+
+                        worst_image = torch.permute(torch.squeeze(inputs[worst_idx]),(1,2,0))
+                        best_image = torch.permute(torch.squeeze(inputs[best_idx]),(1,2,0))
+
+                        worst_pred_base = pred[worst_idx] if pred[worst_idx]>0 else pred[worst_idx]+360
+                        best_pred_base = pred[best_idx] if pred[best_idx]>0 else pred[best_idx]+360
+
+                        plt.subplot(2,1,1)
+                        plt.imshow(worst_image)
+                        plt.axis('off')
+                        plt.title("Pred:%.1f , Target:%.1f" % (worst_pred_base, labels[worst_idx]))
+                        plt.subplot(2,1,2)
+                        plt.imshow(best_image)
+                        plt.axis('off')
+                        plt.title("Pred:%.1f , Target:%.1f" % (best_pred_base, labels[best_idx]))
                         plt.tight_layout()
                         plt.show()
                     k += 1
