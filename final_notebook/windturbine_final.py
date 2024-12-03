@@ -75,27 +75,13 @@ class WindTurbineDataset(Dataset):
         angle_type (string, optional): Type of angle to predict. Default is "both". Options: "base_angle", "blade_angle", "both"
         base_angle_range (list, optional): Range of base angles to include. Default is [0, 360]. [min, max]
     """
-    def __init__(self, csv_file, root_dir, transform=None, images_num=1, angle_type="both", base_angle_range=[0, 360]):
+    def __init__(self, csv_file, root_dir, transform=None, images_num=1, angle_type="both"):
         self.root_dir = root_dir
         csv_path = os.path.join(self.root_dir, csv_file)
         self.rotations_df = pd.read_csv(csv_path)
         self.images_num = images_num
         self.angle_type = angle_type
         self.transform = transform  # Accept external transformation callable
-
-        # Filter out base angles outside the range
-        if base_angle_range[1] > base_angle_range[0]:
-            self.rotations_df = self.rotations_df[
-                self.rotations_df.iloc[:, 0].apply(
-                    lambda x: (x <= base_angle_range[1] and x >= base_angle_range[0])
-                )
-            ]
-        else:
-            self.rotations_df = self.rotations_df[
-                self.rotations_df.iloc[:, 0].apply(
-                    lambda x: (x <= base_angle_range[1] or x >= base_angle_range[0])
-                )
-            ]
 
     def __len__(self):
         return len(self.rotations_df)
@@ -145,69 +131,6 @@ class WindTurbineDataloader(Dataset):
     @staticmethod
     def dataloader(dataset, batch_size=4, shuffle=True,):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
-
-#Loss functions
-class AngularLoss(nn.Module):
-    def __init__(self):
-        super(AngularLoss, self).__init__()
-    
-    def forward(self, pred_init, target_init, is_degrees=False):
-        pred = pred_init
-        target = target_init
-        """
-        Computes the loss for angular data.
-        pred: Tensor of shape (batch_size, 2), predicted angles (in degrees or radians).
-        target: Tensor of shape (batch_size, 2), target angles (in degrees or radians).
-        is_degrees: Boolean indicating if the angles are in degrees (default: False).
-        """
-        if is_degrees:
-            pred = pred * (torch.pi / 180)
-            target = target * (torch.pi / 180)
-        
-        # Compute smallest angular difference
-        angular_diff = torch.atan2(torch.sin(pred - target), torch.cos(pred - target))
-        
-        # Scale the loss by a factor of 10
-        angular_diff = angular_diff * 10
-        
-        # Loss is the mean squared angular difference
-        loss = torch.mean((angular_diff)** 2)
-        return loss
-    
-class AngularVectorLoss(nn.Module):
-    def __init__(self):
-        super(AngularVectorLoss, self).__init__()
-    
-    def forward(self, pred_init, target_init, is_degrees=False):
-        # Test if the dimensions are correct
-        if pred_init.shape != target_init.shape:
-            raise ValueError("The dimensions of the predicted and target tensors must match.")
-        pred = pred_init
-        target = target_init
-        """
-        Computes the loss for angular data.
-        pred: Tensor of shape (batch_size, 2), predicted angles (in degrees or radians).
-        target: Tensor of shape (batch_size, 2), target angles (in degrees or radians).
-        is_degrees: Boolean indicating if the angles are in degrees (default: False).
-        """
-        if is_degrees:
-            pred = pred * (torch.pi / 180)
-            target = target * (torch.pi / 180)
-        loss = []
-        for i in range(pred.shape[1]):
-            # Represent angles as 2D vectors
-            scale = 1+(i*2)
-            pred_vec = torch.stack((torch.sin(pred[:,i]*scale), torch.cos(pred[:,i]*scale)), dim=-1)
-            target_vec = torch.stack((torch.sin(target[:,i]*scale), torch.cos(target[:,i]*scale)), dim=-1)
-
-            # Compute vector difference and its norm
-            diff = pred_vec - target_vec
-            diff_norm = torch.norm(diff, dim=-1) * (1/scale)
-            diff_norm = diff_norm * (18/torch.pi)  # Convert to degrees/10
-
-            loss.append(torch.mean(diff_norm ** 2))  # Mean squared error
-
-        return torch.sum(torch.stack(loss))
 
 class BaseBladeLoss(nn.Module):
     def __init__(self, scale=1, input=2):
