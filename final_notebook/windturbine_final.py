@@ -133,9 +133,9 @@ class WindTurbineDataloader(Dataset):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
 
 class BaseBladeLoss(nn.Module):
-    def __init__(self, scale=1, input=2):
+    def __init__(self, scale=1, n_input=2):
         self.scale = scale
-        self.input = input
+        self.input = n_input
         super(BaseBladeLoss, self).__init__()
     def forward(self, pred_init, target_init, is_degrees=False):
         scale = self.scale
@@ -146,12 +146,34 @@ class BaseBladeLoss(nn.Module):
             target = target * (torch.pi / 180)
             
         baseL = torch.mean(((torch.cos(pred[:,0]) - torch.cos(target[:,0]))*scale)**2 + ((torch.sin(pred[:,0]) - torch.sin(target[:,0]))*scale)**2) * 1/(2*torch.pi)
-        if self.input == 2:
+        if self.n_input == 2:
             bladeL = torch.mean(((torch.cos(pred[:,1]*3) - torch.cos(target[:,1]*3))*scale)**2 + ((torch.sin(pred[:,1]*3) - torch.sin(target[:,1]*3))*scale)**2) * 1/(2*torch.pi)
-            L = baseL + blade
+            L = baseL + bladeL
         else:
             L = baseL
         return L
+    
+class modLoss(nn.Module):
+    def __init__(self, n_input=2):
+        self.n_input = n_input
+        super(modLoss, self).__init__()
+    def forward(self, pred_init, target_init, is_degrees=False):
+        pred = pred_init
+        target = target_init
+        
+        if is_degrees:
+            pred = pred * (torch.pi / 180)
+            target = target * (torch.pi / 180)
+            
+        err = torch.abs(pred-target)
+        if self.n_input == 2:
+            baseL = torch.mean(torch.remainder((err[:,0] + torch.pi), 2*torch.pi) - torch.pi)
+            bladeL = torch.mean(torch.remainder((err[:,1] + 1/3*torch.pi), 2/3*torch.pi) - 1/3*torch.pi)
+            loss = baseL + bladeL
+            return loss
+        else:
+            loss = torch.mean(torch.remainder((err + torch.pi), 2*torch.pi) - torch.pi)
+            return loss
 
 # Trainers
 class Trainer():
