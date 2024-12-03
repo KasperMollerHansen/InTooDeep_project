@@ -135,7 +135,7 @@ class WindTurbineDataloader(Dataset):
 class BaseBladeLoss(nn.Module):
     def __init__(self, scale=1, n_input=2):
         self.scale = scale
-        self.input = n_input
+        self.n_input = n_input
         super(BaseBladeLoss, self).__init__()
     def forward(self, pred_init, target_init, is_degrees=False):
         # Test if the dimensions are correct
@@ -148,9 +148,9 @@ class BaseBladeLoss(nn.Module):
             pred = pred * (torch.pi / 180)
             target = target * (torch.pi / 180)
             
-        baseL = torch.mean(((torch.cos(pred[:,0]) - torch.cos(target[:,0]))*scale)**2 + ((torch.sin(pred[:,0]) - torch.sin(target[:,0]))*scale)**2) * 1/(2*torch.pi)
+        baseL = torch.mean(((torch.cos(pred[:,0]) - torch.cos(target[:,0]))*scale)**2 + ((torch.sin(pred[:,0]) - torch.sin(target[:,0]))*scale)**2)
         if self.n_input == 2:
-            bladeL = torch.mean(((torch.cos(pred[:,1]*3) - torch.cos(target[:,1]*3))*scale)**2 + ((torch.sin(pred[:,1]*3) - torch.sin(target[:,1]*3))*scale)**2) * 1/(2*torch.pi)
+            bladeL = torch.mean(((torch.cos(pred[:,1]*3) - torch.cos(target[:,1]*3))*scale)**2 + ((torch.sin(pred[:,1]*3) - torch.sin(target[:,1]*3))*scale)**2)
             L = baseL + bladeL
         else:
             L = baseL
@@ -282,7 +282,7 @@ class Trainer():
             self.train_loss.append(train_loss)
             test_loss, test_acc = self._test(self.testloader, self.model, self.criterion, self.device)
             self.test_loss.append(test_loss)
-            print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {np.round(train_loss,3)}, Test Loss: {np.round(test_loss,3)}")
+            print(f"Epoch {epoch + 1}/{self.epochs}, Train Loss: {np.round(train_loss,4)}, Test Loss: {np.round(test_loss,4)}")
             try:
                 print(f"lr {self.schedular.get_last_lr()}")
             except:
