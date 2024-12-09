@@ -382,7 +382,7 @@ class Trainer():
                         plt.tight_layout()
                         plt.show()
                     k += 1
-                else:
+                elif (viz== True):
                     if k%20==0:
                         diff_base = np.abs(pred - labels)
                         diff_base = np.fmod(diff_base, 360)
