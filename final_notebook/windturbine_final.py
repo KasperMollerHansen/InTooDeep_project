@@ -129,7 +129,7 @@ class WindTurbineDataloader(Dataset):
         # Seperate the labels from the features
         return train_dataset, test_dataset
     @staticmethod
-    def dataloader(dataset, batch_size=4, shuffle=True,):
+    def dataloader(dataset, batch_size, shuffle=True, drop_last=True):
         return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
 
 class BaseBladeLoss(nn.Module):
@@ -183,9 +183,10 @@ class modLoss(nn.Module):
             
             penalty = True # For test
             if penalty:
-                bias = 1e-3
-                for i in range(3):
-                    th = 1-0.5*i
+                bias_angle = 5
+                bias =  1 - torch.exp(-torch.tensor(bias_angle*torch.pi/180)**2/2)
+                for i in range(5):
+                    th = 1-0.25*i
                     val = 1.1+0.1*i
                     if th == 0:
                         th = 0.1
