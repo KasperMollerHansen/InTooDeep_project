@@ -157,10 +157,9 @@ class BaseBladeLoss(nn.Module):
         return L
     
 class modLoss(nn.Module):
-    def __init__(self, n_input=2, scale=1.0):
+    def __init__(self, n_input=2):
         super(modLoss, self).__init__()
         self.n_input = n_input
-        self.scale = scale
     def forward(self, pred_init, target_init, is_degrees=False):
         # Test if the dimensions are correct
         if pred_init.shape != target_init.shape:
@@ -176,9 +175,10 @@ class modLoss(nn.Module):
         if self.n_input == 2:
             baseL = torch.remainder((err[:,0] + torch.pi), 2*torch.pi) - torch.pi
             bladeL = torch.remainder((err[:,1] + 1/3*torch.pi), 2/3*torch.pi) - 1/3*torch.pi
-            baseL_gauss = (1 - torch.exp(-baseL**2/2))*self.scale #Gaussian smmoth
-            bladeL_gauss = (1 - torch.exp(-bladeL**2/2))*self.scale #Gaussian smmoth
-            loss = torch.mean(baseL_gauss) + torch.mean(bladeL_gauss)
+            baseL_gauss = (1 - torch.exp(-baseL**2/2)) #Gaussian smmoth
+            bladeL_gauss = (1 - torch.exp(-bladeL**2/(2*(1/3)**2))) # Gaussian smmoth
+            bladeL_gauss = 1-torch.exp(-bladeL_gauss**2/(2*(1+1/3)**2))
+            loss = torch.mean(baseL_gauss) + torch.mean(bladeL_gauss)            
             return loss
         else:
             baseL = torch.remainder((err + torch.pi), 2*torch.pi) - torch.pi
