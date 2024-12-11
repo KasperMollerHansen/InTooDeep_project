@@ -157,9 +157,10 @@ class BaseBladeLoss(nn.Module):
         return L
     
 class modLoss(nn.Module):
-    def __init__(self, n_input=2):
+    def __init__(self, n_input=2, bias=False):
         super(modLoss, self).__init__()
         self.n_input = n_input
+        self.bias = bias
     def forward(self, pred_init, target_init, is_degrees=False):
         # Test if the dimensions are correct
         if pred_init.shape != target_init.shape:
@@ -181,25 +182,22 @@ class modLoss(nn.Module):
             bladeL_gauss = 1-torch.exp(-bladeL_gauss**2/(2*(1+1/3)**2))
             bladeL_gausss = bladeL_gauss / (1 + bladeL_gauss)
             
-            penalty = True # For test
-            if penalty:
-                bias_angle = 5
-                bias =  1 - torch.exp(-torch.tensor(bias_angle*torch.pi/180)**2/2)
+            if self.bias:
                 for i in range(5):
+                    bias =  1 - torch.exp(-torch.tensor((1+i)*torch.pi/180)**2/2)
                     th = 1-0.25*i
-                    val = 1.1+0.1*i
                     if th == 0:
                         th = 0.1
-                    temp_base = torch.where(torch.abs(baseL*180/torch.pi) > th, 1, val)
-                    temp_blade = torch.where(torch.abs(bladeL*180/torch.pi) > th, 1, val)
+                    temp_base = torch.where(torch.abs(baseL*180/torch.pi) > th, bias, 0)
+                    temp_blade = torch.where(torch.abs(bladeL*180/torch.pi) > th, bias, 0)
                     try:
-                        base_pen = base_pen*temp_base
-                        blade_pen = blade_pen*temp_blade
+                        base_pen = base_pen+temp_base
+                        blade_pen = blade_pen+temp_blade
                     except:
                         base_pen = temp_base
                         blade_pen = temp_blade
-                baseL_gauss = (baseL_gauss+bias)**base_pen
-                bladeL_gauss = (bladeL_gauss+bias)**blade_pen
+                baseL_gauss = baseL_gauss + base_pen
+                bladeL_gauss = bladeL_gauss + blade_pen
                 
             loss = torch.mean(baseL_gauss) + torch.mean(bladeL_gauss)            
             return loss
