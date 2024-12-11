@@ -176,8 +176,28 @@ class modLoss(nn.Module):
             baseL = torch.remainder((err[:,0] + torch.pi), 2*torch.pi) - torch.pi
             bladeL = torch.remainder((err[:,1] + 1/3*torch.pi), 2/3*torch.pi) - 1/3*torch.pi
             baseL_gauss = (1 - torch.exp(-baseL**2/2)) #Gaussian smmoth
+            baseL_gauss = baseL_gauss / (1 + baseL_gauss)
             bladeL_gauss = (1 - torch.exp(-bladeL**2/(2*(1/3)**2))) # Gaussian smmoth
             bladeL_gauss = 1-torch.exp(-bladeL_gauss**2/(2*(1+1/3)**2))
+            bladeL_gausss = bladeL_gauss / (1 + bladeL_gauss)
+            
+            penalty = True # For test
+            if penalty:
+                bias = 1e-3
+                th = 0.5
+                
+                for i in range(3):
+                    temp_base = torch.where(torch.abs(baseL*180/torch.pi) > 1, 1, 1.1+0.1*i)
+                    temp_blade = torch.where(torch.abs(bladeL*180/torch.pi) > 1, 1, 1.1+0.1*i)
+                    try:
+                        base_pen = base_pen*temp_base
+                        blade_pen = blade_pen*temp_blade
+                    except:
+                        base_pen = temp_base
+                        blade_pen = temp_blade
+                baseL_gauss = (baseL_gauss+bias)**base_pen
+                bladeL_gauss = (bladeL_gauss+bias)**blade_pen
+                
             loss = torch.mean(baseL_gauss) + torch.mean(bladeL_gauss)            
             return loss
         else:
