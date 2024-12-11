@@ -130,7 +130,7 @@ class WindTurbineDataloader(Dataset):
         return train_dataset, test_dataset
     @staticmethod
     def dataloader(dataset, batch_size=4, shuffle=True,):
-        return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+        return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=True)
 
 class BaseBladeLoss(nn.Module):
     def __init__(self, scale=1, n_input=2):
