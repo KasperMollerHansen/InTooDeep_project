@@ -184,11 +184,13 @@ class modLoss(nn.Module):
             penalty = True # For test
             if penalty:
                 bias = 1e-3
-                th = 0.5
-                
                 for i in range(3):
-                    temp_base = torch.where(torch.abs(baseL*180/torch.pi) > 1, 1, 1.1+0.1*i)
-                    temp_blade = torch.where(torch.abs(bladeL*180/torch.pi) > 1, 1, 1.1+0.1*i)
+                    th = 1-0.5*i
+                    val = 1.1+0.1*i
+                    if th == 0:
+                        th = 0.1
+                    temp_base = torch.where(torch.abs(baseL*180/torch.pi) > th, 1, val)
+                    temp_blade = torch.where(torch.abs(bladeL*180/torch.pi) > th, 1, val)
                     try:
                         base_pen = base_pen*temp_base
                         blade_pen = blade_pen*temp_blade
